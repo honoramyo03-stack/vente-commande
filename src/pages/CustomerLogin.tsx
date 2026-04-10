@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Store, User, Hash, ArrowRight, AlertCircle, Check, Loader2, RefreshCw } from 'lucide-react';
 import { useCustomer } from '../contexts/CustomerContext';
-import toast from 'react-hot-toast';
+import { useNotification } from '../contexts/NotificationContext';
 
 const TOTAL_TABLES = 20; // Nombre total de tables disponibles
 
 const CustomerLogin: React.FC = () => {
   const navigate = useNavigate();
   const { login, isLoggedIn, connectedCustomers, isReady } = useCustomer();
+  const { notify } = useNotification();
   const [name, setName] = useState('');
   const [selectedTable, setSelectedTable] = useState<number | null>(null);
   const [customTableNumber, setCustomTableNumber] = useState('');
@@ -47,14 +48,14 @@ const CustomerLogin: React.FC = () => {
     e.preventDefault();
 
     if (!name.trim()) {
-      toast.error('Veuillez entrer votre nom');
+      notify('Veuillez entrer votre nom', 'error');
       return;
     }
 
     const tableNumber = getTableNumber();
 
     if (!tableNumber) {
-      toast.error('Veuillez sélectionner ou entrer un numéro de table valide');
+      notify('Veuillez sélectionner ou entrer un numéro de table valide', 'error');
       return;
     }
 
@@ -66,14 +67,14 @@ const CustomerLogin: React.FC = () => {
         setIsSubmitting(true);
         try {
           await login(name.trim(), tableNumber);
-          toast.success(`Bienvenue ${name} ! Reconnecté à la Table ${tableNumber}`);
+          notify(`Bienvenue ${name} ! Reconnecté à la Table ${tableNumber}`, 'success');
         } catch {
-          toast.error('Erreur de connexion');
+          notify('Erreur de connexion', 'error');
         }
         setIsSubmitting(false);
         return;
       } else {
-        toast.error(`La table ${tableNumber} est occupée par un autre client. Veuillez en choisir une autre.`);
+        notify(`La table ${tableNumber} est occupée par un autre client. Veuillez en choisir une autre.`, 'error');
         return;
       }
     }
@@ -81,9 +82,9 @@ const CustomerLogin: React.FC = () => {
     setIsSubmitting(true);
     try {
       await login(name.trim(), tableNumber);
-      toast.success(`Bienvenue ${name} ! Table ${tableNumber}`);
+      notify(`Bienvenue ${name} ! Table ${tableNumber}`, 'success');
     } catch {
-      toast.error('Erreur de connexion');
+      notify('Erreur de connexion', 'error');
     }
     setIsSubmitting(false);
   };

@@ -7,7 +7,7 @@ import { useOrders, OrderStatus, PaymentInfo, Order } from '../contexts/OrdersCo
 import { useCustomer } from '../contexts/CustomerContext';
 import OrderCard from '../components/OrderCard';
 import SellerHeader from '../components/SellerHeader';
-import toast from 'react-hot-toast';
+import { useNotification } from '../contexts/NotificationContext';
 
 const categories = ['Pizza', 'Burgers', 'Boissons', 'Desserts', 'Plats', 'Entrées'];
 

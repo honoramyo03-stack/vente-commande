@@ -3,13 +3,14 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { useOrders, Order } from '../contexts/OrdersContext';
 import { useCart } from '../contexts/CartContext';
-import toast from 'react-hot-toast';
+import { useNotification } from '../contexts/NotificationContext';
 
 const Payment: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { updateOrderStatus, paymentNumbers } = useOrders();
   const { clearCart } = useCart();
+  const { notify } = useNotification();
   const [order, setOrder] = useState<Order | null>(null);
 
   useEffect(() => {
@@ -25,7 +26,7 @@ const Payment: React.FC = () => {
   const handleConfirmPayment = () => {
     updateOrderStatus(order.id, 'paid');
     clearCart();
-    toast.success('Paiement confirmé avec succès !');
+    notify('Paiement confirmé avec succès !', 'success');
     navigate('/menu', { replace: true });
   };
 

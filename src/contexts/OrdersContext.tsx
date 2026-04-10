@@ -618,13 +618,16 @@ export const OrdersProvider: React.FC<OrdersProviderProps> = ({ children }) => {
     }
 
     const newQuantity = Math.max(0, currentQuantity - quantity);
-    const isActive = newQuantity > 0;
+    // On ne change PAS isActive automatiquement
+    // Seul le vendeur contrôle l'état actif/inactif via le bouton
+    const product = products.find(p => p.id === productId);
+    const currentIsActive = product?.isActive ?? true;
 
     if (isSupabaseConfigured()) {
       try {
         await supabase
           .from('products')
-          .update({ quantity: newQuantity, is_active: isActive, updated_at: new Date().toISOString() })
+          .update({ quantity: newQuantity, updated_at: new Date().toISOString() })
           .eq('id', productId);
       } catch (e) {
         console.error('Erreur mise à jour stock:', e);
@@ -634,7 +637,7 @@ export const OrdersProvider: React.FC<OrdersProviderProps> = ({ children }) => {
     setProducts(prev => {
       const updated = prev.map(p => {
         if (p.id === productId && p.quantity !== undefined) {
-          return { ...p, quantity: newQuantity, isActive };
+          return { ...p, quantity: newQuantity, isActive: currentIsActive };
         }
         return p;
       });

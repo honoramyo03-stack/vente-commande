@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Store, LogOut, User, Clock } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { useNotification } from '../contexts/NotificationContext';
 
 const SellerHeader: React.FC = () => {
   const navigate = useNavigate();
+  const { notify } = useNotification();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [username, setUsername] = useState('Vendeur');
 
@@ -42,7 +43,7 @@ const SellerHeader: React.FC = () => {
   const handleLogout = () => {
     localStorage.removeItem('sellerLoggedIn');
     localStorage.removeItem('sellerUsername');
-    toast.success('Déconnexion réussie');
+    notify('Déconnexion réussie', 'success');
     navigate('/seller/login');
   };
 

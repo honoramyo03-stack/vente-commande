@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import toast from 'react-hot-toast';
+import { useNotification } from './NotificationContext';
 
 export interface Product {
   id: string;
@@ -44,6 +44,7 @@ interface CartProviderProps {
 
 export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
   const [items, setItems] = useState<CartItem[]>([]);
+  const { notify } = useNotification();
 
   const getProductQuantity = (productId: string) => {
     return items.find((item) => item.product.id === productId)?.quantity || 0;
@@ -53,7 +54,7 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     const currentQuantity = getProductQuantity(product.id);
 
     if (product.quantity !== undefined && currentQuantity >= product.quantity) {
-      toast.error(`Stock maximum atteint pour ${product.name}`);
+      notify(`Stock maximum atteint pour ${product.name}`, 'error');
       return;
     }
 
@@ -71,12 +72,12 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
       return [...prevItems, { product, quantity: 1 }];
     });
 
-    toast.success(`${product.name} ajouté au panier`);
+    notify(`${product.name} ajouté au panier`, 'success');
   };
 
   const removeFromCart = (productId: string) => {
     setItems((prevItems) => prevItems.filter((item) => item.product.id !== productId));
-    toast.success('Produit retiré du panier');
+    notify('Produit retiré du panier', 'success');
   };
 
   const updateQuantity = (productId: string, quantity: number, maxQuantity?: number) => {
@@ -88,7 +89,7 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     const safeQuantity = maxQuantity !== undefined ? Math.min(quantity, maxQuantity) : quantity;
 
     if (maxQuantity !== undefined && quantity > maxQuantity) {
-      toast.error('La quantité demandée dépasse le stock disponible');
+      notify('La quantité demandée dépasse le stock disponible', 'error');
     }
 
     if (safeQuantity < 1) {

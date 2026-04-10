@@ -38,7 +38,9 @@ const CustomerHome: React.FC = () => {
   // Extraire les catégories uniques des produits
   const categories = ['Tous', ...Array.from(new Set(products.map(p => p.category)))];
 
-  // Filtrer les produits actifs uniquement
+  // Filtrer les produits disponibles uniquement
+  // Seul le bouton Actif/Inactif du vendeur contrôle l'affichage
+  // La quantité est juste informative (stock disponible)
   const activeProducts = products.filter(p => p.isActive);
 
   const filteredProducts =

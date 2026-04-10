@@ -5,10 +5,11 @@ import { useCart } from '../contexts/CartContext';
 import { useOrders, PaymentMethod } from '../contexts/OrdersContext';
 import { useCustomer } from '../contexts/CustomerContext';
 import Header from '../components/Header';
-import toast from 'react-hot-toast';
+import { useNotification } from '../contexts/NotificationContext';
 
 const Checkout: React.FC = () => {
   const { items, getTotal } = useCart();
+  const { notify } = useNotification();
   const { addOrder, paymentNumbers, products } = useOrders();
   const { customer, isLoggedIn, isReady } = useCustomer();
   const navigate = useNavigate();
@@ -37,12 +38,12 @@ const Checkout: React.FC = () => {
     e.preventDefault();
 
     if (items.length === 0) {
-      toast.error('Votre panier est vide');
+      notify('Votre panier est vide', 'error');
       return;
     }
 
     if (!customer) {
-      toast.error('Veuillez vous connecter');
+      notify('Veuillez vous connecter', 'error');
       navigate('/');
       return;
     }
@@ -59,10 +60,11 @@ const Checkout: React.FC = () => {
 
     if (invalidItem) {
       const currentProduct = products.find((product) => product.id === invalidItem.product.id);
-      toast.error(
+      notify(
         currentProduct?.quantity !== undefined
           ? `Stock insuffisant pour ${invalidItem.product.name} : ${currentProduct.quantity} disponible(s)`
-          : `${invalidItem.product.name} n'est plus disponible`
+          : `${invalidItem.product.name} n'est plus disponible`,
+        'error'
       );
       return;
     }
@@ -79,14 +81,14 @@ const Checkout: React.FC = () => {
         notes: notes || undefined,
       });
 
-      toast.success('Commande créée avec succès !');
+      notify('Commande créée avec succès !', 'success');
 
       setTimeout(() => {
         navigate('/payment', { state: { order } });
         setIsSubmitting(false);
       }, 500);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Impossible de créer la commande');
+      notify(error instanceof Error ? error.message : 'Impossible de créer la commande', 'error');
       setIsSubmitting(false);
     }
   };

@@ -3,12 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Printer, MessageSquare, Clock, CheckCircle, User, DollarSign, Package } from 'lucide-react';
 import { useOrders, OrderStatus } from '../contexts/OrdersContext';
 import SellerHeader from '../components/SellerHeader';
-import toast from 'react-hot-toast';
+import { useNotification } from '../contexts/NotificationContext';
 
 const OrderDetails: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
   const { getOrderById, updateOrderStatus } = useOrders();
+  const { notify } = useNotification();
   
   const order = orderId ? getOrderById(orderId) : null;
 
@@ -104,19 +105,17 @@ const OrderDetails: React.FC = () => {
   const handleStatusUpdate = () => {
     if (nextStatus) {
       updateOrderStatus(order.id, nextStatus);
-      toast.success(`Commande ${nextStatus === 'ready' ? 'marquée comme prête' : 'validée'}`);
+      notify(`Commande ${nextStatus === 'ready' ? 'marquée comme prête' : 'validée'}`, 'success');
     }
   };
 
   const handlePrint = () => {
     window.print();
-    toast.success('Impression lancée');
+    notify('Impression lancée', 'success');
   };
 
   const handleContact = () => {
-    toast('Fonctionnalité de chat à implémenter', {
-      icon: <MessageSquare size={20} />,
-    });
+    notify('Utilisez le chat pour communiquer avec le client', 'info');
   };
 
   return (
@@ -292,7 +291,7 @@ const OrderDetails: React.FC = () => {
                   <button
                     onClick={() => {
                       updateOrderStatus(order.id, 'cancelled');
-                      toast.success('Commande annulée');
+                      notify('Commande annulée', 'success');
                     }}
                     className="w-full px-4 py-3 border border-red-600 text-red-600 rounded-lg hover:bg-red-50 transition-colors font-bold"
                   >

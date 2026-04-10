@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Minus, Package, ImageOff, Check, ShoppingCart } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { Product } from '../contexts/OrdersContext';
-import toast from 'react-hot-toast';
+import { useNotification } from '../contexts/NotificationContext';
 
 interface ProductCardProps {
   product: Product;
@@ -11,6 +11,7 @@ interface ProductCardProps {
 
 const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'list' }) => {
   const { addToCart, removeFromCart, updateQuantity, getProductQuantity } = useCart();
+  const { notify } = useNotification();
   const [imageError, setImageError] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [animateSubtotal, setAnimateSubtotal] = useState(false);
@@ -40,11 +41,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'list' })
 
   const handleAddToCart = () => {
     if (product.quantity !== undefined && product.quantity <= 0) {
-      toast.error('Produit épuisé');
+      notify('Produit épuisé', 'error');
       return;
     }
     if (reachedStockLimit) {
-      toast.error('Stock maximum atteint');
+      notify('Stock maximum atteint', 'error');
       return;
     }
     setIsAdding(true);
@@ -63,7 +64,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'list' })
 
   const handleIncrease = () => {
     if (reachedStockLimit) {
-      toast.error('Stock maximum atteint');
+      notify('Stock maximum atteint', 'error');
       return;
     }
     updateQuantity(product.id, cartQuantity + 1, product.quantity);

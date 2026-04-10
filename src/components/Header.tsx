@@ -3,13 +3,14 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Home, Store, User, LogOut, Clock, ShoppingCart, History, Calendar, Settings } from 'lucide-react';
 import { useCustomer } from '../contexts/CustomerContext';
 import { useCart } from '../contexts/CartContext';
-import toast from 'react-hot-toast';
+import { useNotification } from '../contexts/NotificationContext';
 
 const Header: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { customer, logout, isLoggedIn } = useCustomer();
   const { items } = useCart();
+  const { notify } = useNotification();
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Mise à jour de l'heure chaque seconde
@@ -38,7 +39,7 @@ const Header: React.FC = () => {
 
   const handleLogout = () => {
     logout();
-    toast.success('Déconnexion réussie');
+    notify('Déconnexion réussie', 'success');
     navigate('/');
   };
 

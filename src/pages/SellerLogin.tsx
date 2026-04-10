@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Store, Lock, User, ShieldCheck } from 'lucide-react';
 import { useOrders } from '../contexts/OrdersContext';
-import toast from 'react-hot-toast';
+import { useNotification } from '../contexts/NotificationContext';
 
 const SellerLogin: React.FC = () => {
   const navigate = useNavigate();
   const { sellerAccounts } = useOrders();
+  const { notify } = useNotification();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -23,7 +24,7 @@ const SellerLogin: React.FC = () => {
     e.preventDefault();
     
     if (!username || !password) {
-      toast.error('Veuillez remplir tous les champs');
+      notify('Veuillez remplir tous les champs', 'error');
       return;
     }
 
@@ -36,13 +37,13 @@ const SellerLogin: React.FC = () => {
       );
 
       if (account) {
-        toast.success('Connexion réussie !');
+        notify('Connexion réussie !', 'success');
         localStorage.setItem('sellerLoggedIn', 'true');
         localStorage.setItem('sellerUsername', username);
         localStorage.setItem('sellerRole', account.role);
         navigate('/seller/dashboard');
       } else {
-        toast.error('Identifiants incorrects');
+        notify('Identifiants incorrects', 'error');
       }
       setIsLoading(false);
     }, 800);
@@ -104,7 +105,7 @@ const SellerLogin: React.FC = () => {
               <button
                 type="button"
                 className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
-                onClick={() => toast('Contactez l\'administrateur pour réinitialiser votre mot de passe')}
+                onClick={() => notify('Contactez l\'administrateur pour réinitialiser votre mot de passe', 'info')}
               >
                 Mot de passe oublié ?
               </button>
