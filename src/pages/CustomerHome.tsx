@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { LayoutList, LayoutGrid } from 'lucide-react';
 import Header from '../components/Header';
 import ProductCard from '../components/ProductCard';
 import { useOrders } from '../contexts/OrdersContext';
@@ -12,6 +13,10 @@ const CustomerHome: React.FC = () => {
   const { customer, isLoggedIn, isReady } = useCustomer();
   const { setCurrentTableNumber, setCurrentCustomerName } = useChat();
   const [selectedCategory, setSelectedCategory] = useState('Tous');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => {
+    const saved = localStorage.getItem('quickorder_viewmode');
+    return (saved === 'grid' ? 'grid' : 'list') as 'list' | 'grid';
+  });
 
   // Vérifier si le client est connecté
   useEffect(() => {
@@ -24,6 +29,11 @@ const CustomerHome: React.FC = () => {
       setCurrentCustomerName(customer.name);
     }
   }, [isReady, isLoggedIn, customer, navigate, setCurrentTableNumber, setCurrentCustomerName]);
+
+  // Sauvegarder la préférence de vue
+  useEffect(() => {
+    localStorage.setItem('quickorder_viewmode', viewMode);
+  }, [viewMode]);
 
   // Extraire les catégories uniques des produits
   const categories = ['Tous', ...Array.from(new Set(products.map(p => p.category)))];
@@ -52,42 +62,95 @@ const CustomerHome: React.FC = () => {
     <div className="min-h-screen bg-gray-50 pb-20">
       <Header />
 
-      {/* Categories / Navigation */}
+      {/* Categories + Toggle vue */}
       <div className="sticky top-[52px] bg-white z-20 border-b border-gray-100 shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex gap-2 overflow-x-auto">
-          {categories.map((cat) => (
+        <div className="max-w-4xl mx-auto px-4 py-2.5 flex items-center gap-2">
+          {/* Catégories scrollables */}
+          <div className="flex gap-2 overflow-x-auto flex-1 scrollbar-hide">
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-colors ${
+                  selectedCategory === cat
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          {/* Bouton bascule liste/grille */}
+          <div className="flex items-center bg-gray-100 rounded-lg p-0.5 flex-shrink-0">
             <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                selectedCategory === cat
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              onClick={() => setViewMode('list')}
+              className={`p-1.5 rounded-md transition-all ${
+                viewMode === 'list'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
               }`}
+              title="Vue en liste"
             >
-              {cat}
+              <LayoutList size={16} />
             </button>
-          ))}
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-1.5 rounded-md transition-all ${
+                viewMode === 'grid'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+              title="Vue en grille"
+            >
+              <LayoutGrid size={16} />
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Banner / Info */}
-      <div className="max-w-4xl mx-auto px-4 mt-6">
-        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100 rounded-xl p-4 mb-6">
-          <h2 className="font-semibold text-indigo-800 text-sm mb-1">
+      <div className="max-w-4xl mx-auto px-4 mt-4 sm:mt-6">
+        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100 rounded-xl p-3 sm:p-4 mb-4 sm:mb-6">
+          <h2 className="font-semibold text-indigo-800 text-xs sm:text-sm mb-1">
             👋 Bienvenue {customer?.name} !
           </h2>
-          <p className="text-indigo-600 text-xs">
+          <p className="text-indigo-600 text-[10px] sm:text-xs">
             Sélectionnez vos produits et validez votre commande. Paiement rapide via Mobile Money.
           </p>
         </div>
 
-        {/* Product Grid - Liste sur mobile, grille sur desktop */}
-        <div className="flex flex-col gap-2 sm:grid sm:grid-cols-2 md:sm:grid-cols-3 lg:grid-cols-4 sm:gap-4">
-          {filteredProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
+        {/* Nombre de produits */}
+        <div className="flex items-center justify-between mb-2 sm:mb-3">
+          <p className="text-[10px] sm:text-xs text-gray-400">
+            {filteredProducts.length} produit{filteredProducts.length > 1 ? 's' : ''} disponible{filteredProducts.length > 1 ? 's' : ''}
+          </p>
+          <p className="text-[10px] sm:text-xs text-gray-400 flex items-center gap-1">
+            {viewMode === 'list' ? (
+              <><LayoutList size={12} /> Vue en liste</>
+            ) : (
+              <><LayoutGrid size={12} /> Vue en grille</>
+            )}
+          </p>
         </div>
+
+        {/* Produits */}
+        {viewMode === 'list' ? (
+          // Vue en liste
+          <div className="flex flex-col gap-2 sm:gap-3">
+            {filteredProducts.map((product) => (
+              <ProductCard key={product.id} product={product} viewMode="list" />
+            ))}
+          </div>
+        ) : (
+          // Vue en grille (colonnes)
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
+            {filteredProducts.map((product) => (
+              <ProductCard key={product.id} product={product} viewMode="grid" />
+            ))}
+          </div>
+        )}
 
         {filteredProducts.length === 0 && (
           <div className="text-center py-12 text-gray-500 text-sm">

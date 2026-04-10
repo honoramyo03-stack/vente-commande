@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Package, PlusCircle, CreditCard, UserPlus, Save, X, Edit2, Trash2, FileText, Download, Search, Wallet } from 'lucide-react';
+import { Package, PlusCircle, CreditCard, UserPlus, Save, X, Edit2, Trash2, FileText, Download, Search, Wallet, User } from 'lucide-react';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
 import { useOrders, OrderStatus, PaymentInfo, Order } from '../contexts/OrdersContext';
@@ -436,46 +436,46 @@ const SellerDashboard: React.FC = () => {
 
       <main className="container mx-auto px-4 py-6">
         {/* Navigation / Tabs */}
-        <div className="flex gap-2 overflow-x-auto border-b border-gray-200 pb-2 mb-6">
+        <div className="flex gap-1 sm:gap-2 overflow-x-auto border-b border-gray-200 pb-1.5 sm:pb-2 mb-3 sm:mb-6 -mx-2 px-2 sm:mx-0 sm:px-0 scrollbar-hide">
           <button
             onClick={() => setActiveTab('orders')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors whitespace-nowrap ${
+            className={`flex items-center gap-1 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-semibold transition-colors whitespace-nowrap ${
               activeTab === 'orders' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'
             }`}
           >
-            <Package size={18} /> Commandes
+            <Package size={12} className="sm:w-[18px] sm:h-[18px]" /> Commandes
           </button>
           <button
             onClick={() => setActiveTab('products')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors whitespace-nowrap ${
+            className={`flex items-center gap-1 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-semibold transition-colors whitespace-nowrap ${
               activeTab === 'products' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'
             }`}
           >
-            <PlusCircle size={18} /> Produits
+            <PlusCircle size={12} className="sm:w-[18px] sm:h-[18px]" /> Produits
           </button>
           <button
             onClick={() => setActiveTab('payments')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors whitespace-nowrap ${
+            className={`flex items-center gap-1 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-semibold transition-colors whitespace-nowrap ${
               activeTab === 'payments' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'
             }`}
           >
-            <CreditCard size={18} /> Paiements
+            <CreditCard size={12} className="sm:w-[18px] sm:h-[18px]" /> Paiements
           </button>
           <button
             onClick={() => setActiveTab('accounts')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors whitespace-nowrap ${
+            className={`flex items-center gap-1 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-semibold transition-colors whitespace-nowrap ${
               activeTab === 'accounts' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'
             }`}
           >
-            <UserPlus size={18} /> Comptes
+            <UserPlus size={12} className="sm:w-[18px] sm:h-[18px]" /> Comptes
           </button>
           <button
             onClick={() => setActiveTab('reports')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors whitespace-nowrap ${
+            className={`flex items-center gap-1 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-semibold transition-colors whitespace-nowrap ${
               activeTab === 'reports' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'
             }`}
           >
-            <FileText size={18} /> Rapports
+            <FileText size={12} className="sm:w-[18px] sm:h-[18px]" /> Rapports
           </button>
         </div>
 
@@ -483,51 +483,51 @@ const SellerDashboard: React.FC = () => {
         {activeTab === 'orders' && (
           <div>
             {/* Stats Overview */}
-            <div className="grid grid-cols-2 xl:grid-cols-5 gap-4 mb-6">
-              <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
-                <p className="text-gray-500 text-xs">Total Commandes</p>
-                <p className="text-2xl font-bold text-gray-900">{orders.length}</p>
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 sm:gap-4 mb-3 sm:mb-6">
+              <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-2 sm:p-4 border border-gray-100">
+                <p className="text-gray-500 text-[8px] sm:text-xs">Commandes</p>
+                <p className="text-base sm:text-2xl font-bold text-gray-900">{orders.length}</p>
               </div>
-              <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 bg-gradient-to-br from-emerald-50 to-white">
-                <div className="flex items-start justify-between gap-3">
+              <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-2 sm:p-4 border border-gray-100 bg-gradient-to-br from-emerald-50 to-white">
+                <div className="flex items-start justify-between gap-1">
                   <div>
-                    <p className="text-gray-500 text-xs">Chiffre d'affaires</p>
-                    <p className="text-xl font-bold text-emerald-700">{formatPrice(totalRevenueAll)}</p>
+                    <p className="text-gray-500 text-[8px] sm:text-xs">CA</p>
+                    <p className="text-[11px] sm:text-xl font-bold text-emerald-700">{formatPrice(totalRevenueAll)}</p>
                   </div>
-                  <span className="p-2 rounded-lg bg-emerald-100 text-emerald-700">
+                  <span className="p-1 sm:p-2 rounded-md sm:rounded-lg bg-emerald-100 text-emerald-700 hidden sm:block">
                     <Wallet size={18} />
                   </span>
                 </div>
               </div>
-              <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
-                <p className="text-gray-500 text-xs">En attente</p>
-                <p className="text-2xl font-bold text-yellow-600">{getStatusCount('pending')}</p>
+              <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-2 sm:p-4 border border-gray-100">
+                <p className="text-gray-500 text-[8px] sm:text-xs">En attente</p>
+                <p className="text-base sm:text-2xl font-bold text-yellow-600">{getStatusCount('pending')}</p>
               </div>
-              <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+              <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-2 sm:p-4 border border-gray-100 hidden sm:block">
                 <p className="text-gray-500 text-xs">Prêtes</p>
                 <p className="text-2xl font-bold text-green-600">{getStatusCount('ready')}</p>
               </div>
-              <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
-                <p className="text-gray-500 text-xs">Clients connectés</p>
-                <p className="text-2xl font-bold text-indigo-600">{connectedCustomers.length}</p>
+              <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-2 sm:p-4 border border-gray-100">
+                <p className="text-gray-500 text-[8px] sm:text-xs">Connectés</p>
+                <p className="text-base sm:text-2xl font-bold text-indigo-600">{connectedCustomers.length}</p>
               </div>
             </div>
 
             {/* Filters */}
-            <div className="flex flex-col md:flex-row gap-4 justify-between mb-6">
-              <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col gap-2 sm:gap-4 sm:flex-row sm:justify-between mb-3 sm:mb-6">
+              <div className="flex flex-wrap gap-1 sm:gap-2">
                 {statusFilters.map((filter) => (
                   <button
                     key={filter.id}
                     onClick={() => setSelectedStatus(filter.id)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center space-x-1.5 transition-colors ${
+                    className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-md sm:rounded-lg text-[9px] sm:text-xs font-medium flex items-center space-x-1 transition-colors ${
                       selectedStatus === filter.id
                         ? 'bg-indigo-600 text-white'
                         : `${filter.color} hover:bg-opacity-75`
                     }`}
                   >
                     <span>{filter.name}</span>
-                    <span className="bg-white bg-opacity-30 px-1.5 py-0.5 rounded-full text-xs">
+                    <span className="bg-white bg-opacity-30 px-1 py-0.5 rounded-full text-[8px] sm:text-xs">
                       {filter.count}
                     </span>
                   </button>
@@ -536,10 +536,10 @@ const SellerDashboard: React.FC = () => {
 
               <input
                 type="text"
-                placeholder="Rechercher (ID, Table, Nom)..."
+                placeholder="Rechercher..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm w-full md:w-64"
+                className="px-2 sm:px-4 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-[11px] sm:text-sm w-full sm:w-64"
               />
             </div>
 
@@ -568,24 +568,24 @@ const SellerDashboard: React.FC = () => {
         {activeTab === 'products' && (
           <div>
             {/* Actions et filtres */}
-            <div className="flex flex-col md:flex-row gap-4 justify-between mb-6">
-              <div className="flex gap-2 items-center">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <div className="flex flex-col gap-2 sm:gap-3 mb-3 sm:mb-6">
+              <div className="flex gap-1.5 sm:gap-2 items-center overflow-x-auto">
+                <div className="relative flex-shrink-0">
+                  <Search className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
                   <input
                     type="text"
-                    placeholder="Rechercher un produit..."
+                    placeholder="Rechercher..."
                     value={productFilter}
                     onChange={(e) => setProductFilter(e.target.value)}
-                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm w-64"
+                    className="pl-7 sm:pl-9 pr-2 sm:pr-4 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-[11px] sm:text-sm w-32 sm:w-64"
                   />
                 </div>
                 <select
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="px-2 sm:px-4 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-[11px] sm:text-sm flex-shrink-0"
                 >
-                  <option value="Tous">Toutes catégories</option>
+                  <option value="Tous">Tous</option>
                   {categories.map(c => (
                     <option key={c} value={c}>{c}</option>
                   ))}
@@ -596,88 +596,115 @@ const SellerDashboard: React.FC = () => {
                   resetProductForm();
                   setShowProductModal(true);
                 }}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-semibold"
+                className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-[11px] sm:text-sm font-semibold w-full sm:w-auto"
               >
-                <PlusCircle size={18} /> Nouveau Produit
+                <PlusCircle size={14} className="sm:w-[18px] sm:h-[18px]" /> Nouveau Produit
               </button>
             </div>
 
-            {/* Products Table */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-100 text-xs font-semibold text-gray-600 uppercase">
-                    <th className="p-4">Produit</th>
-                    <th className="p-4">Catégorie</th>
-                    <th className="p-4">Prix</th>
-                    <th className="p-4">Stock</th>
-                    <th className="p-4">Statut</th>
-                    <th className="p-4">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 text-sm">
-                  {filteredProducts.map((prod) => (
-                    <tr key={prod.id} className={!prod.isActive ? 'bg-red-50' : ''}>
-                      <td className="p-4 flex items-center gap-3">
-                        <img src={prod.image} alt="" className="w-12 h-12 object-cover rounded-lg" />
-                        <div>
-                          <p className="font-semibold text-gray-800">{prod.name}</p>
-                          <p className="text-xs text-gray-500 line-clamp-1">{prod.description}</p>
+            {/* Products Cards - Mobile friendly */}
+            <div className="space-y-2 sm:space-y-3">
+              {filteredProducts.map((prod) => (
+                <div
+                  key={prod.id}
+                  className={`rounded-xl border p-2.5 sm:p-3 shadow-sm ${
+                    !prod.isActive ? 'bg-red-50 border-red-200' : 'bg-white border-gray-100'
+                  }`}
+                >
+                  {/* Mobile Layout */}
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    {/* Image */}
+                    <div className="relative flex-shrink-0">
+                      <img
+                        src={prod.image}
+                        alt=""
+                        className="w-12 h-12 sm:w-14 sm:h-14 object-cover rounded-lg"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%23f3f4f6" width="100" height="100"/><text x="50" y="55" text-anchor="middle" fill="%239ca3af" font-size="30">🍽</text></svg>';
+                        }}
+                      />
+                      <span className={`absolute -top-1 -right-1 w-2 h-2 rounded-full ${
+                        prod.isActive ? 'bg-green-500' : 'bg-red-500'
+                      }`}></span>
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-1">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-gray-800 text-[11px] sm:text-sm truncate">{prod.name}</p>
+                          <p className="text-[9px] sm:text-xs text-gray-400 truncate">{prod.description}</p>
                         </div>
-                      </td>
-                      <td className="p-4 text-gray-600">{prod.category}</td>
-                      <td className="p-4 font-semibold text-gray-900">{formatPrice(prod.price)}</td>
-                      <td className="p-4">
+                        {/* Actions */}
+                        <div className="flex gap-0.5 sm:gap-1 flex-shrink-0">
+                          <button
+                            onClick={() => openEditProduct(prod)}
+                            className="p-1 sm:p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-md"
+                          >
+                            <Edit2 size={12} className="sm:w-3.5 sm:h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteProduct(prod.id)}
+                            className="p-1 sm:p-1.5 text-red-600 hover:bg-red-50 rounded-md"
+                          >
+                            <Trash2 size={12} className="sm:w-3.5 sm:h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Bottom row: category + price + stock */}
+                      <div className="flex items-center gap-1 sm:gap-2 mt-1 sm:mt-1.5 flex-wrap">
+                        <span className="text-[8px] sm:text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-medium">
+                          {prod.category}
+                        </span>
+                        <span className="font-bold text-indigo-700 text-[11px] sm:text-sm">
+                          {formatPrice(prod.price)}
+                        </span>
                         {prod.quantity !== undefined ? (
-                          <span className={`font-semibold ${prod.quantity <= 5 ? 'text-red-600' : 'text-green-600'}`}>
-                            {prod.quantity}
+                          <span className={`text-[9px] sm:text-xs font-semibold px-1.5 py-0.5 rounded-full ${
+                            prod.quantity <= 5
+                              ? 'bg-red-100 text-red-600'
+                              : 'bg-green-100 text-green-600'
+                          }`}>
+                            Stock: {prod.quantity}
                           </span>
                         ) : (
-                          <span className="text-gray-400">-</span>
+                          <span className="text-[9px] sm:text-xs text-gray-400 px-1.5 py-0.5 rounded-full bg-gray-100">
+                            Stock: illimité
+                          </span>
                         )}
-                      </td>
-                      <td className="p-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        <span className={`text-[8px] sm:text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
                           prod.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                         }`}>
                           {prod.isActive ? 'Actif' : 'Inactif'}
                         </span>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => openEditProduct(prod)}
-                            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg"
-                          >
-                            <Edit2 size={16} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteProduct(prod.id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {filteredProducts.length === 0 && (
+                <div className="text-center py-8 sm:py-12 text-gray-400">
+                  <Package className="mx-auto mb-3 text-gray-300" size={32} />
+                  <p className="text-xs sm:text-sm">Aucun produit trouvé</p>
+                </div>
+              )}
             </div>
           </div>
         )}
 
         {/* Tab: Paiements */}
         {activeTab === 'payments' && (
-          <div className="max-w-2xl mx-auto space-y-4">
-            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <CreditCard className="text-indigo-600" /> Numéros de réception des paiements
+          <div className="max-w-2xl mx-auto space-y-2 sm:space-y-4">
+            <h3 className="text-[11px] sm:text-lg font-bold text-gray-800 mb-2 sm:mb-4 flex items-center gap-1.5 sm:gap-2">
+              <CreditCard size={14} className="sm:w-5 sm:h-5 text-indigo-600" /> Numéros de paiement
             </h3>
 
             {/* Orange Money */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="font-bold text-orange-600 text-lg">🟠 Orange Money</h4>
+            <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-6 shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between mb-2 sm:mb-4">
+                <h4 className="font-bold text-orange-600 text-[11px] sm:text-lg">🟠 Orange Money</h4>
                 {editingPayment !== 'orange_money' && (
                   <button
                     onClick={() => startEditPayment('orange_money', paymentNumbers.orange_money)}
@@ -727,9 +754,9 @@ const SellerDashboard: React.FC = () => {
             </div>
 
             {/* Mvola */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="font-bold text-green-600 text-lg">🟢 Mvola</h4>
+            <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-6 shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between mb-2 sm:mb-4">
+                <h4 className="font-bold text-green-600 text-[11px] sm:text-lg">🟢 Mvola</h4>
                 {editingPayment !== 'mvola' && (
                   <button
                     onClick={() => startEditPayment('mvola', paymentNumbers.mvola)}
@@ -779,9 +806,9 @@ const SellerDashboard: React.FC = () => {
             </div>
 
             {/* Airtel Money */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="font-bold text-red-600 text-lg">🔴 Airtel Money</h4>
+            <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-6 shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between mb-2 sm:mb-4">
+                <h4 className="font-bold text-red-600 text-[11px] sm:text-lg">🔴 Airtel Money</h4>
                 {editingPayment !== 'airtel_money' && (
                   <button
                     onClick={() => startEditPayment('airtel_money', paymentNumbers.airtel_money)}
@@ -835,57 +862,49 @@ const SellerDashboard: React.FC = () => {
         {/* Tab: Comptes */}
         {activeTab === 'accounts' && (
           <div className="max-w-2xl mx-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                <UserPlus className="text-indigo-600" /> Comptes Vendeurs
+            <div className="flex justify-between items-center mb-3 sm:mb-6">
+              <h3 className="text-[11px] sm:text-lg font-bold text-gray-800 flex items-center gap-1.5 sm:gap-2">
+                <UserPlus size={14} className="sm:w-5 sm:h-5 text-indigo-600" /> Comptes Vendeurs
               </h3>
               <button
                 onClick={() => setShowAccountModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-semibold"
+                className="flex items-center gap-1 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-[10px] sm:text-sm font-semibold"
               >
-                <PlusCircle size={18} /> Nouveau Compte
+                <PlusCircle size={14} className="sm:w-[18px] sm:h-[18px]" /> Nouveau
               </button>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-100 text-xs font-semibold text-gray-600 uppercase">
-                    <th className="p-4">Utilisateur</th>
-                    <th className="p-4">Rôle</th>
-                    <th className="p-4">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {sellerAccounts.map((acc, index) => (
-                    <tr key={index}>
-                      <td className="p-4 font-semibold text-gray-800">{acc.username}</td>
-                      <td className="p-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          acc.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'
-                        }`}>
-                          {acc.role}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        {acc.username !== 'admin' && (
-                          <button
-                            onClick={() => {
-                              if (confirm('Supprimer ce compte ?')) {
-                                deleteSellerAccount(acc.username);
-                                toast.success('Compte supprimé');
-                              }
-                            }}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-2">
+              {sellerAccounts.map((acc, index) => (
+                <div key={index} className="bg-white rounded-lg sm:rounded-2xl shadow-sm border border-gray-100 p-2.5 sm:p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                      <User size={14} className="text-indigo-600 sm:w-4 sm:h-4" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-800 text-[11px] sm:text-sm">{acc.username}</p>
+                      <span className={`px-1.5 py-0.5 rounded-full text-[9px] sm:text-xs font-medium ${
+                        acc.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'
+                      }`}>
+                        {acc.role}
+                      </span>
+                    </div>
+                  </div>
+                  {acc.username !== 'admin' && (
+                    <button
+                      onClick={() => {
+                        if (confirm('Supprimer ce compte ?')) {
+                          deleteSellerAccount(acc.username);
+                          toast.success('Compte supprimé');
+                        }
+                      }}
+                      className="p-1.5 sm:p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                    >
+                      <Trash2 size={14} className="sm:w-4 sm:h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -924,47 +943,47 @@ const SellerDashboard: React.FC = () => {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-                <p className="text-gray-500 text-xs mb-1">Total Commandes</p>
-                <p className="text-3xl font-bold text-gray-900">{reportData.totalOrders}</p>
+            <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-3 sm:mb-6">
+              <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-2.5 sm:p-5 border border-gray-100">
+                <p className="text-gray-500 text-[9px] sm:text-xs mb-0.5 sm:mb-1">Total Commandes</p>
+                <p className="text-lg sm:text-3xl font-bold text-gray-900">{reportData.totalOrders}</p>
               </div>
-              <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-                <p className="text-gray-500 text-xs mb-1">Commandes Payées</p>
-                <p className="text-3xl font-bold text-green-600">{reportData.completedOrders}</p>
+              <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-2.5 sm:p-5 border border-gray-100">
+                <p className="text-gray-500 text-[9px] sm:text-xs mb-0.5 sm:mb-1">Commandes Payées</p>
+                <p className="text-lg sm:text-3xl font-bold text-green-600">{reportData.completedOrders}</p>
               </div>
-              <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-                <p className="text-gray-500 text-xs mb-1">Chiffre d'affaires</p>
-                <p className="text-2xl font-bold text-indigo-600">{formatPrice(reportData.totalRevenue)}</p>
+              <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-2.5 sm:p-5 border border-gray-100">
+                <p className="text-gray-500 text-[9px] sm:text-xs mb-0.5 sm:mb-1">Chiffre d'affaires</p>
+                <p className="text-sm sm:text-2xl font-bold text-indigo-600">{formatPrice(reportData.totalRevenue)}</p>
               </div>
-              <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-                <p className="text-gray-500 text-xs mb-1">Panier Moyen</p>
-                <p className="text-2xl font-bold text-amber-600">{formatPrice(reportData.avgOrderValue)}</p>
+              <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-2.5 sm:p-5 border border-gray-100">
+                <p className="text-gray-500 text-[9px] sm:text-xs mb-0.5 sm:mb-1">Panier Moyen</p>
+                <p className="text-sm sm:text-2xl font-bold text-amber-600">{formatPrice(reportData.avgOrderValue)}</p>
               </div>
             </div>
 
             {/* Top Products */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-              <h4 className="font-bold text-gray-800 mb-4">🏆 Produits les plus vendus</h4>
+            <div className="bg-white rounded-lg sm:rounded-2xl shadow-sm border border-gray-100 p-3 sm:p-6">
+              <h4 className="font-bold text-gray-800 text-[11px] sm:text-base mb-2 sm:mb-4">🏆 Produits les plus vendus</h4>
               {reportData.topProducts.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-2 sm:space-y-3">
                   {reportData.topProducts.map((prod, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <span className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">
+                    <div key={idx} className="flex items-center justify-between p-2 sm:p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-1.5 sm:gap-3">
+                        <span className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-[10px] sm:text-sm">
                           {idx + 1}
                         </span>
-                        <span className="font-medium text-gray-800">{prod.name}</span>
+                        <span className="font-medium text-gray-800 text-[10px] sm:text-sm">{prod.name}</span>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold text-gray-900">{prod.qty} vendus</p>
-                        <p className="text-xs text-gray-500">{formatPrice(prod.revenue)}</p>
+                        <p className="font-semibold text-gray-900 text-[10px] sm:text-sm">{prod.qty} vendus</p>
+                        <p className="text-[9px] sm:text-xs text-gray-500">{formatPrice(prod.revenue)}</p>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-500 text-center py-8">Aucune donnée pour cette période</p>
+                <p className="text-gray-500 text-center py-4 sm:py-8 text-[11px] sm:text-sm">Aucune donnée pour cette période</p>
               )}
             </div>
           </div>

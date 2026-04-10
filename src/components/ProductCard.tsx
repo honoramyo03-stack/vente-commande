@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { Plus, Minus, Package, ImageOff, Check, ShoppingCart } from 'lucide-react';
+import { Plus, Minus, Package, ImageOff, Check } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { Product } from '../contexts/OrdersContext';
 import toast from 'react-hot-toast';
 
 interface ProductCardProps {
   product: Product;
+  viewMode?: 'list' | 'grid';
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
+const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'list' }) => {
   const { addToCart, removeFromCart, updateQuantity, getProductQuantity } = useCart();
   const [imageError, setImageError] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
@@ -81,12 +82,20 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
   const subtotal = product.price * cartQuantity;
 
-  return (
-    <>
-      {/* ===== MOBILE: Liste horizontale avec contrôles panier ===== */}
-      <div className={`sm:hidden flex items-stretch bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden ${isOutOfStock ? 'opacity-60 grayscale' : ''} ${isInCart ? 'border-indigo-300 bg-indigo-50/30' : ''}`}>
-        {/* Image miniature */}
-        <div className="relative w-16 h-16 flex-shrink-0 overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200">
+  // ===== MODE GRILLE (COLONNE) =====
+  if (viewMode === 'grid') {
+    return (
+      <div
+        className={`bg-white rounded-xl shadow-sm border overflow-hidden transition-all hover:shadow-md flex flex-col ${
+          isOutOfStock
+            ? 'opacity-60 grayscale border-gray-200'
+            : isInCart
+              ? 'border-indigo-300 ring-2 ring-indigo-200'
+              : 'border-gray-100'
+        }`}
+      >
+        {/* Image */}
+        <div className="relative w-full aspect-square bg-gradient-to-br from-gray-100 to-gray-200">
           {!imageError && product.image ? (
             <img
               src={product.image}
@@ -96,259 +105,256 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-100">
-              <ImageOff size={16} className="text-indigo-300" />
+              <ImageOff size={32} className="text-indigo-300" />
             </div>
           )}
+
+          {/* Badge catégorie */}
+          <div className="absolute top-2 left-2">
+            <span className={`${categoryColor} text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm`}>
+              {product.category}
+            </span>
+          </div>
+
           {/* Badge stock */}
           {product.quantity !== undefined && (
-            <div className={`absolute top-0 right-0 text-[7px] font-bold w-4 h-4 flex items-center justify-center rounded-bl-lg ${
-              isOutOfStock
-                ? 'bg-red-500 text-white'
-                : isLowStock
-                  ? 'bg-amber-400 text-amber-900'
-                  : 'bg-green-500 text-white'
-            }`}>
+            <div
+              className={`absolute top-2 right-2 text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5 shadow-sm ${
+                isOutOfStock
+                  ? 'bg-red-500 text-white'
+                  : isLowStock
+                    ? 'bg-amber-400 text-amber-900'
+                    : 'bg-green-500 text-white'
+              }`}
+            >
+              <Package size={10} />
               {product.quantity}
             </div>
           )}
-          {isOutOfStock && (
-            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-              <span className="text-[6px] text-white font-bold">ÉPUISÉ</span>
-            </div>
-          )}
-        </div>
 
-        {/* Infos produit */}
-        <div className="flex-1 min-w-0 p-2 flex flex-col justify-between">
-          {/* Nom et catégorie */}
-          <div>
-            <div className="flex items-center gap-1">
-              <h3 className="font-bold text-gray-900 text-[11px] leading-tight truncate flex-1">
-                {product.name}
-              </h3>
-              <span className={`${categoryColor} text-[7px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0`}>
-                {product.category}
-              </span>
-            </div>
-            <p className="text-[9px] text-gray-400 truncate mt-0.5">
-              {product.description}
-            </p>
-            {/* Stock dispo */}
-            {product.quantity !== undefined && !isOutOfStock && (
-              <p className="text-[8px] text-gray-400 mt-0.5">
-                Stock: <span className="font-semibold text-gray-500">{product.quantity}</span>
-              </p>
-            )}
-          </div>
-
-          {/* Prix + Contrôle panier */}
-          <div className="flex items-center justify-between mt-1">
-            {/* Prix unitaire */}
-            <div className="flex flex-col">
-              <span className="font-extrabold text-indigo-600 text-[11px]">
-                {formatPrice(product.price)}
-              </span>
-              {isInCart && (
-                <span className="text-[8px] text-indigo-400 font-semibold">
-                  Total: {formatPrice(subtotal)}
-                </span>
-              )}
-            </div>
-
-            {/* Contrôle panier */}
-            {!isOutOfStock && !isInCart && (
-              <button
-                onClick={handleAddToCart}
-                disabled={isAdding || reachedStockLimit}
-                className={`flex items-center gap-0.5 px-2 py-1 rounded-lg font-semibold text-[9px] transition-all ${
-                  isAdding
-                    ? 'bg-green-500 text-white'
-                    : 'bg-indigo-600 text-white active:bg-indigo-700'
-                }`}
-              >
-                {isAdding ? (
-                  <>
-                    <Check size={10} className="animate-bounce" />
-                    <span>OK!</span>
-                  </>
-                ) : (
-                  <>
-                    <Plus size={10} />
-                    <span>Ajouter</span>
-                  </>
-                )}
-              </button>
-            )}
-
-            {isInCart && !isOutOfStock && (
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={handleDecrease}
-                  className="w-6 h-6 flex items-center justify-center rounded-lg bg-red-100 text-red-600 active:bg-red-200 transition-colors"
-                >
-                  <Minus size={10} />
-                </button>
-                <div className="flex flex-col items-center min-w-[24px]">
-                  <span className="text-[11px] font-extrabold text-indigo-700">{cartQuantity}</span>
-                </div>
-                <button
-                  onClick={handleIncrease}
-                  disabled={reachedStockLimit}
-                  className={`w-6 h-6 flex items-center justify-center rounded-lg transition-colors ${
-                    reachedStockLimit
-                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                      : 'bg-green-100 text-green-600 active:bg-green-200'
-                  }`}
-                >
-                  <Plus size={10} />
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ===== DESKTOP: Carte verticale avec contrôles panier ===== */}
-      <div className={`hidden sm:block bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden transition-all hover:shadow-xl hover:-translate-y-1 ${isOutOfStock ? 'opacity-60 grayscale' : ''} ${isInCart ? 'border-indigo-300 ring-2 ring-indigo-100' : ''}`}>
-        {/* Image Container */}
-        <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200">
-          {!imageError && product.image ? (
-            <img
-              src={product.image}
-              alt={product.name}
-              className="w-full h-full object-cover transition-transform duration-300 hover:scale-110"
-              onError={() => setImageError(true)}
-            />
-          ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-100">
-              <div className="bg-white/80 backdrop-blur p-4 rounded-2xl shadow-sm">
-                <ImageOff size={32} className="text-indigo-300" />
-              </div>
-              <span className="text-xs text-indigo-400 mt-2 font-medium">{product.category}</span>
-            </div>
-          )}
-
-          {/* Badge Catégorie */}
-          <div className={`absolute top-3 left-3 ${categoryColor} backdrop-blur-sm text-xs font-bold px-3 py-1 rounded-full shadow-sm`}>
-            {product.category}
-          </div>
-
-          {/* Badge Stock */}
-          {product.quantity !== undefined && (
-            <div className={`absolute top-3 right-3 text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-sm ${
-              isOutOfStock
-                ? 'bg-red-500 text-white'
-                : isLowStock
-                  ? 'bg-amber-400 text-amber-900'
-                  : 'bg-green-500 text-white'
-            }`}>
-              <Package size={12} />
-              {isOutOfStock ? 'Épuisé' : `${product.quantity} dispo`}
-            </div>
-          )}
-
-          {/* Badge dans le panier */}
+          {/* Badge panier */}
           {isInCart && (
-            <div className="absolute bottom-3 right-3 bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg">
-              <ShoppingCart size={12} />
-              ×{cartQuantity}
+            <div className="absolute bottom-2 right-2 bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow">
+              🛒 ×{cartQuantity}
             </div>
           )}
 
-          {/* Overlay pour produit épuisé */}
+          {/* Overlay épuisé */}
           {isOutOfStock && (
             <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-              <span className="bg-red-600 text-white font-bold px-4 py-2 rounded-lg transform -rotate-12 shadow-lg">
+              <span className="text-xs text-white font-bold bg-red-600 px-3 py-1 rounded">
                 ÉPUISÉ
               </span>
             </div>
           )}
         </div>
 
-        {/* Content Desktop */}
-        <div className="p-4">
-          <h3 className="font-bold text-gray-900 text-base mb-1 line-clamp-1">
-            {product.name}
-          </h3>
-          <p className="text-sm text-gray-500 mb-3 line-clamp-2 min-h-[2.5rem]">
-            {product.description}
-          </p>
+        {/* Infos */}
+        <div className="p-2.5 sm:p-3 flex flex-col flex-1 justify-between gap-1.5 sm:gap-2">
+          <div>
+            <h3 className="font-bold text-gray-900 text-xs sm:text-sm leading-tight line-clamp-1">
+              {product.name}
+            </h3>
+            <p className="text-[10px] sm:text-xs text-gray-400 line-clamp-1 mt-0.5">
+              {product.description}
+            </p>
+          </div>
 
-          <div className="flex items-center justify-between gap-2">
+          {/* Prix + bouton */}
+          <div className="flex items-center justify-between gap-1">
             <div className="flex flex-col">
-              <span className="font-extrabold text-indigo-600 text-lg">
+              <span className="font-extrabold text-indigo-600 text-xs sm:text-sm">
                 {formatPrice(product.price)}
               </span>
               {isInCart && (
-                <span className="text-[11px] text-indigo-400 font-semibold">
-                  Sous-total: {formatPrice(subtotal)}
-                </span>
-              )}
-              {product.quantity !== undefined && !isOutOfStock && !isInCart && (
-                <span className="text-[10px] text-gray-400">
-                  Stock: {product.quantity}
+                <span className="text-[8px] sm:text-[10px] text-indigo-400 font-semibold">
+                  Total: {formatPrice(subtotal)}
                 </span>
               )}
             </div>
 
-            {/* Bouton Ajouter ou Contrôles +/- */}
-            {!isInCart ? (
+            {/* Bouton Ajouter */}
+            {!isOutOfStock && !isInCart && (
               <button
                 onClick={handleAddToCart}
-                disabled={isOutOfStock || isAdding || reachedStockLimit}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all transform active:scale-95 ${
-                  isOutOfStock || reachedStockLimit
-                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                    : isAdding
-                      ? 'bg-green-500 text-white'
-                      : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg'
+                disabled={isAdding || reachedStockLimit}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg font-semibold text-[10px] sm:text-xs transition-all ${
+                  isAdding
+                    ? 'bg-green-500 text-white'
+                    : 'bg-indigo-600 text-white active:bg-indigo-700 hover:bg-indigo-700'
                 }`}
               >
                 {isAdding ? (
-                  <>
-                    <Check size={16} className="animate-bounce" />
-                    <span>Ajouté!</span>
-                  </>
-                ) : reachedStockLimit ? (
-                  <>
-                    <Package size={16} />
-                    <span>Max</span>
-                  </>
+                  <><Check size={12} className="animate-bounce" /><span>OK!</span></>
                 ) : (
-                  <>
-                    <Plus size={16} />
-                    <span>Ajouter</span>
-                  </>
+                  <><Plus size={12} /><span>Ajouter</span></>
                 )}
               </button>
-            ) : (
-              <div className="flex items-center gap-2">
+            )}
+
+            {/* Contrôles +/- */}
+            {isInCart && !isOutOfStock && (
+              <div className="flex items-center gap-1">
                 <button
                   onClick={handleDecrease}
-                  className="w-9 h-9 flex items-center justify-center rounded-xl bg-red-100 text-red-600 hover:bg-red-200 transition-colors active:scale-90"
+                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-red-100 text-red-600 active:bg-red-200"
                 >
-                  <Minus size={16} />
+                  <Minus size={12} />
                 </button>
-                <span className="text-lg font-extrabold text-indigo-700 min-w-[28px] text-center">
+                <span className="text-xs font-extrabold text-indigo-700 min-w-[20px] text-center">
                   {cartQuantity}
                 </span>
                 <button
                   onClick={handleIncrease}
                   disabled={reachedStockLimit}
-                  className={`w-9 h-9 flex items-center justify-center rounded-xl transition-colors active:scale-90 ${
+                  className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${
                     reachedStockLimit
                       ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                      : 'bg-green-100 text-green-600 hover:bg-green-200'
+                      : 'bg-green-100 text-green-600 active:bg-green-200'
                   }`}
                 >
-                  <Plus size={16} />
+                  <Plus size={12} />
                 </button>
               </div>
             )}
           </div>
         </div>
       </div>
-    </>
+    );
+  }
+
+  // ===== MODE LISTE (défaut) =====
+  return (
+    <div
+      className={`flex items-stretch bg-white rounded-xl shadow-sm border overflow-hidden transition-all hover:shadow-md ${
+        isOutOfStock
+          ? 'opacity-60 grayscale border-gray-200'
+          : isInCart
+            ? 'border-indigo-300 bg-indigo-50/30'
+            : 'border-gray-100'
+      }`}
+    >
+      {/* Image */}
+      <div className="relative w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 flex-shrink-0 overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200">
+        {!imageError && product.image ? (
+          <img
+            src={product.image}
+            alt={product.name}
+            className="w-full h-full object-cover"
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-100">
+            <ImageOff size={18} className="text-indigo-300" />
+          </div>
+        )}
+
+        {product.quantity !== undefined && (
+          <div
+            className={`absolute top-0 right-0 text-[7px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded-bl-lg flex items-center gap-0.5 ${
+              isOutOfStock
+                ? 'bg-red-500 text-white'
+                : isLowStock
+                  ? 'bg-amber-400 text-amber-900'
+                  : 'bg-green-500 text-white'
+            }`}
+          >
+            <Package size={8} className="hidden sm:inline" />
+            {product.quantity}
+          </div>
+        )}
+
+        {isOutOfStock && (
+          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+            <span className="text-[7px] sm:text-[9px] text-white font-bold bg-red-600 px-2 py-1 rounded">
+              ÉPUISÉ
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Infos */}
+      <div className="flex-1 min-w-0 p-2 sm:p-3 md:p-4 flex flex-col justify-between">
+        <div>
+          <div className="flex items-center gap-1 sm:gap-2">
+            <h3 className="font-bold text-gray-900 text-[11px] sm:text-sm md:text-base leading-tight truncate flex-1">
+              {product.name}
+            </h3>
+            <span
+              className={`${categoryColor} text-[7px] sm:text-[10px] md:text-xs font-bold px-1.5 py-0.5 sm:px-2 sm:py-0.5 rounded-full flex-shrink-0`}
+            >
+              {product.category}
+            </span>
+          </div>
+
+          <p className="text-[9px] sm:text-xs md:text-sm text-gray-400 truncate mt-0.5 sm:mt-1">
+            {product.description}
+          </p>
+
+          {product.quantity !== undefined && !isOutOfStock && (
+            <p className="text-[8px] sm:text-[10px] md:text-xs text-gray-400 mt-0.5 sm:mt-1">
+              Stock: <span className="font-semibold text-gray-500">{product.quantity} dispo</span>
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between mt-1 sm:mt-2 md:mt-3">
+          <div className="flex flex-col">
+            <span className="font-extrabold text-indigo-600 text-[11px] sm:text-sm md:text-base">
+              {formatPrice(product.price)}
+            </span>
+            {isInCart && (
+              <span className="text-[8px] sm:text-[10px] md:text-xs text-indigo-400 font-semibold">
+                Sous-total: {formatPrice(subtotal)}
+              </span>
+            )}
+          </div>
+
+          {!isOutOfStock && !isInCart && (
+            <button
+              onClick={handleAddToCart}
+              disabled={isAdding || reachedStockLimit}
+              className={`flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2 rounded-lg font-semibold text-[9px] sm:text-xs md:text-sm transition-all ${
+                isAdding
+                  ? 'bg-green-500 text-white'
+                  : 'bg-indigo-600 text-white active:bg-indigo-700 hover:bg-indigo-700'
+              }`}
+            >
+              {isAdding ? (
+                <><Check size={12} className="animate-bounce" /><span>OK!</span></>
+              ) : (
+                <><Plus size={12} /><span>Ajouter</span></>
+              )}
+            </button>
+          )}
+
+          {isInCart && !isOutOfStock && (
+            <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2">
+              <button
+                onClick={handleDecrease}
+                className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 flex items-center justify-center rounded-lg bg-red-100 text-red-600 active:bg-red-200 hover:bg-red-200 transition-colors"
+              >
+                <Minus size={12} />
+              </button>
+              <span className="text-[11px] sm:text-sm md:text-base font-extrabold text-indigo-700 min-w-[20px] sm:min-w-[24px] md:min-w-[28px] text-center">
+                {cartQuantity}
+              </span>
+              <button
+                onClick={handleIncrease}
+                disabled={reachedStockLimit}
+                className={`w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 flex items-center justify-center rounded-lg transition-colors ${
+                  reachedStockLimit
+                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    : 'bg-green-100 text-green-600 active:bg-green-200 hover:bg-green-200'
+                }`}
+              >
+                <Plus size={12} />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 };
 
