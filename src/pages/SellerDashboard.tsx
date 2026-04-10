@@ -673,11 +673,35 @@ const SellerDashboard: React.FC = () => {
                             Stock: illimité
                           </span>
                         )}
-                        <span className={`text-[8px] sm:text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-                          prod.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                        }`}>
-                          {prod.isActive ? 'Actif' : 'Inactif'}
-                        </span>
+                        {/* Toggle Actif/Inactif */}
+                        {prod.quantity !== undefined && prod.quantity !== null ? (
+                          // Produit AVEC stock : géré automatiquement par la quantité
+                          <button
+                            disabled
+                            className={`text-[8px] sm:text-[10px] px-1.5 py-0.5 rounded-full font-medium flex items-center gap-0.5 cursor-not-allowed ${
+                              prod.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                            }`}
+                            title="Géré automatiquement par le stock"
+                          >
+                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-current opacity-60"></span>
+                            {prod.quantity > 0 ? 'Auto-actif' : 'Rupture'}
+                          </button>
+                        ) : (
+                          // Produit SANS stock : le vendeur gère manuellement
+                          <button
+                            onClick={() => {
+                              updateProduct(prod.id, { isActive: !prod.isActive });
+                            }}
+                            className={`text-[8px] sm:text-[10px] px-1.5 py-0.5 rounded-full font-medium flex items-center gap-0.5 transition-all ${
+                              prod.isActive
+                                ? 'bg-green-100 text-green-700 hover:bg-green-200 cursor-pointer'
+                                : 'bg-red-100 text-red-700 hover:bg-red-200 cursor-pointer'
+                            }`}
+                            title={prod.isActive ? 'Cliquer pour désactiver' : 'Cliquer pour activer'}
+                          >
+                            {prod.isActive ? '● Actif' : '○ Inactif'}
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -10,7 +10,7 @@ const Cart: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { items, removeFromCart, updateQuantity, getTotal, clearCart } = useCart();
-  const { getOrdersByCustomer, orders, products } = useOrders();
+  const { orders, products } = useOrders();
   const { customer, isLoggedIn, isReady } = useCustomer();
   const [activeTab, setActiveTab] = useState<'cart' | 'history'>('cart');
 
@@ -62,11 +62,12 @@ const Cart: React.FC = () => {
     return products.find((product) => product.id === productId)?.quantity;
   };
 
-  // Obtenir les commandes du client
-  const customerOrders = customer ? getOrdersByCustomer(customer.name) : [];
-  const tableOrders = orders.filter(o => o.tableNumber === customer?.tableNumber);
-  const allMyOrders = [...new Map([...customerOrders, ...tableOrders].map(o => [o.id, o])).values()]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  // Obtenir UNIQUEMENT les commandes de ce client (nom + table)
+  const allMyOrders = customer 
+    ? orders
+        .filter(o => o.customerName === customer.name && o.tableNumber === customer.tableNumber)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    : [];
 
   if (!isReady) {
     return (
