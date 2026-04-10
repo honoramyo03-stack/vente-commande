@@ -108,7 +108,7 @@ const CustomerLogin: React.FC = () => {
           <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-2xl shadow-xl mb-4">
             <Store size={40} className="text-indigo-600" />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">FastOrder & Pay</h1>
+          <h1 className="text-3xl font-bold text-white mb-2">Commande en ligne & rapide</h1>
           <p className="text-white/80 text-sm">Commande à table rapide et sans compte</p>
         </div>
 
