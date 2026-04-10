@@ -94,7 +94,7 @@ const CustomerLogin: React.FC = () => {
       <div className="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center p-4">
         <div className="text-center text-white">
           <Loader2 size={40} className="mx-auto mb-4 animate-spin" />
-          <p className="text-lg font-medium">Chargement de votre session...</p>
+          <p className="text-lg font-medium">Commande en ligne & rapide</p>
         </div>
       </div>
     );
