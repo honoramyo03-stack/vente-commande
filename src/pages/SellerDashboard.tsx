@@ -28,6 +28,7 @@ const SellerDashboard: React.FC = () => {
   } = useOrders();
 
   const { connectedCustomers } = useCustomer();
+  const { notify } = useNotification();
 
   const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'payments' | 'accounts' | 'reports'>('orders');
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus | 'all'>('all');
@@ -69,13 +70,13 @@ const SellerDashboard: React.FC = () => {
 
   const handleStatusUpdate = (orderId: string, newStatus: OrderStatus) => {
     updateOrderStatus(orderId, newStatus);
-    toast.success(`Commande ${newStatus === 'ready' ? 'marquée comme prête' : 'mise à jour'}`);
+    notify(`Commande ${newStatus === 'ready' ? 'marquée comme prête' : 'mise à jour'}`, 'success');
   };
 
   const handleAddProduct = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProductName || !newProductPrice) {
-      toast.error('Le nom et le prix sont obligatoires');
+      notify('Le nom et le prix sont obligatoires', 'error');
       return;
     }
 
@@ -90,10 +91,10 @@ const SellerDashboard: React.FC = () => {
 
     if (editingProduct) {
       updateProduct(editingProduct.id, productData);
-      toast.success('Produit modifié avec succès');
+      notify('Produit modifié avec succès', 'success');
     } else {
       addProduct(productData);
-      toast.success('Produit ajouté avec succès');
+      notify('Produit ajouté avec succès', 'success');
     }
 
     resetProductForm();
@@ -124,7 +125,7 @@ const SellerDashboard: React.FC = () => {
   const handleDeleteProduct = (productId: string) => {
     if (confirm('Supprimer ce produit ?')) {
       deleteProduct(productId);
-      toast.success('Produit supprimé');
+      notify('Produit supprimé', 'success');
     }
   };
 
@@ -133,7 +134,7 @@ const SellerDashboard: React.FC = () => {
       number: editPaymentNum,
       merchantName: editPaymentName,
     });
-    toast.success('Numéro de paiement mis à jour');
+    notify('Numéro de paiement mis à jour', 'success');
     setEditingPayment(null);
   };
 
@@ -146,11 +147,11 @@ const SellerDashboard: React.FC = () => {
   const handleCreateSeller = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUsername || !newPassword) {
-      toast.error('Veuillez remplir tous les champs');
+      notify('Veuillez remplir tous les champs', 'error');
       return;
     }
     if (sellerAccounts.some(acc => acc.username === newUsername)) {
-      toast.error('Ce nom d\'utilisateur existe déjà');
+      notify('Ce nom d\'utilisateur existe déjà', 'error');
       return;
     }
     addSellerAccount({
@@ -158,7 +159,7 @@ const SellerDashboard: React.FC = () => {
       password: newPassword,
       role: 'seller',
     });
-    toast.success('Nouveau compte vendeur créé !');
+    notify('Nouveau compte vendeur créé !', 'success');
     setNewUsername('');
     setNewPassword('');
     setShowAccountModal(false);
@@ -258,6 +259,52 @@ const SellerDashboard: React.FC = () => {
     };
   };
 
+  // Fonction de telechargement compatible mobile
+  const downloadBlob = (blob: Blob, fileName: string) => {
+    try {
+      const url = URL.createObjectURL(blob);
+      const isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(navigator.userAgent);
+      
+      if (isMobile) {
+        const newTab = window.open('', '_blank');
+        if (newTab) {
+          newTab.document.write(
+            '<!DOCTYPE html><html><head><title>' + fileName + '</title>' +
+            '<style>body{font-family:Arial,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f3f4f6}' +
+            '.c{background:#fff;border-radius:16px;padding:32px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.1);max-width:400px}' +
+            '.i{font-size:48px;margin-bottom:16px}h2{color:#1f2937;margin:0 0 8px}p{color:#6b7280;margin:0 0 24px}' +
+            '.b{display:inline-block;padding:14px 32px;background:#2563eb;color:#fff;text-decoration:none;border-radius:12px;font-size:16px;font-weight:700}' +
+            '.g{background:#16a34a}</style></head><body><div class="c">' +
+            '<div class="i">' + (fileName.endsWith('.xlsx') ? '📊' : '📄') + '</div>' +
+            '<h2>' + fileName + '</h2><p>Votre rapport est pret</p>' +
+            '<a href="' + url + '" download="' + fileName + '" class="b' + (fileName.endsWith('.xlsx') ? ' g' : '') + '">⬇️ Telecharger</a>' +
+            '</div></body></html>'
+          );
+          newTab.document.close();
+        } else {
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName;
+          link.style.display = 'none';
+          document.body.appendChild(link);
+          link.click();
+          setTimeout(() => { document.body.removeChild(link); URL.revokeObjectURL(url); }, 3000);
+        }
+      } else {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => { document.body.removeChild(link); URL.revokeObjectURL(url); }, 1000);
+      }
+    } catch (err) {
+      console.error('Erreur telechargement:', err);
+      notify('Erreur telechargement. Essayez sur un ordinateur.', 'error');
+    }
+  };
+
   const exportReport = (format: 'pdf' | 'excel') => {
     const report = getReportData();
     const periodLabel = {
@@ -269,6 +316,7 @@ const SellerDashboard: React.FC = () => {
     const fileDate = new Date().toISOString().split('T')[0];
 
     if (format === 'excel') {
+      try {
       const summaryRows = [
         { Indicateur: 'Période', Valeur: periodLabel },
         { Indicateur: 'Total commandes', Valeur: report.totalOrders },
@@ -296,14 +344,21 @@ const SellerDashboard: React.FC = () => {
       }));
 
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summaryRows), 'Résumé');
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summaryRows), 'Resume');
       XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(ordersRows), 'Commandes');
       XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(topProductsRows), 'Top Produits');
-      XLSX.writeFile(workbook, `rapport_${reportPeriod}_${fileDate}.xlsx`);
-      toast.success('Rapport Excel téléchargé');
+      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+      const excelBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      downloadBlob(excelBlob, 'rapport_' + reportPeriod + '_' + fileDate + '.xlsx');
+      notify('Rapport Excel pret', 'success');
+      } catch (err) {
+        console.error('Erreur Excel:', err);
+        notify('Erreur generation Excel', 'error');
+      }
       return;
     }
 
+    try {
     const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
@@ -415,8 +470,13 @@ const SellerDashboard: React.FC = () => {
       });
     }
 
-    pdf.save(`rapport_${reportPeriod}_${fileDate}.pdf`);
-    toast.success('Rapport PDF téléchargé');
+    const pdfBlob = pdf.output('blob');
+    downloadBlob(pdfBlob, 'rapport_' + reportPeriod + '_' + fileDate + '.pdf');
+    notify('Rapport PDF pret', 'success');
+    } catch (err) {
+      console.error('Erreur PDF:', err);
+      notify('Erreur generation PDF', 'error');
+    }
   };
 
   const statusFilters = [
@@ -919,7 +979,7 @@ const SellerDashboard: React.FC = () => {
                       onClick={() => {
                         if (confirm('Supprimer ce compte ?')) {
                           deleteSellerAccount(acc.username);
-                          toast.success('Compte supprimé');
+                          notify('Compte supprimé', 'success');
                         }
                       }}
                       className="p-1.5 sm:p-2 text-red-600 hover:bg-red-50 rounded-lg"

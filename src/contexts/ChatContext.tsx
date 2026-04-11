@@ -30,6 +30,8 @@ interface ChatContextType {
   ) => Promise<void>;
   getMessagesForTable: (tableNumber: number) => ChatMessage[];
   getMessagesForSeller: () => ChatMessage[];
+  getUnreadCount: (role: 'client' | 'seller', tableNumber?: number, customerName?: string) => number;
+  markAsRead: () => void;
   isOnline: boolean;
   isChatOpen: boolean;
   toggleChat: () => void;
@@ -273,6 +275,47 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     return messages;
   };
 
+  // Tracking des messages déjà vus
+  const [lastReadTimestamp, setLastReadTimestamp] = useState<number>(Date.now());
+
+  // Marquer les messages comme lus (quand on ouvre le chat)
+  const markAsRead = useCallback(() => {
+    setLastReadTimestamp(Date.now());
+  }, []);
+
+  // Calculer le nombre de messages non lus venant des AUTRES uniquement
+  const getUnreadCount = useCallback((role: 'client' | 'seller', tableNumber?: number, customerName?: string): number => {
+    return messages.filter(m => {
+      // Ne compter que les messages reçus APRÈS le dernier "lu"
+      const msgTime = new Date(m.timestamp).getTime();
+      if (msgTime <= lastReadTimestamp) return false;
+
+      if (role === 'seller') {
+        // Vendeur : pas de notification pour ses propres messages
+        if (m.senderType === 'seller') return false;
+        // Notification pour tous les messages clients reçus
+        return true;
+      } else {
+        // Client : pas de notification pour ses propres messages
+        if (m.senderType === 'client' && m.tableNumber === tableNumber && m.senderName === customerName) return false;
+        // Messages du vendeur adressés à cette table
+        if (m.senderType === 'seller' && m.recipientTableNumber === tableNumber) return true;
+        // Messages du vendeur à tout le monde
+        if (m.senderType === 'seller' && !m.recipientTableNumber) return true;
+        // Messages d'autres clients adressés à cette table
+        if (m.senderType === 'client' && m.recipientType === 'client' && m.recipientTableNumber === tableNumber) return true;
+        return false;
+      }
+    }).length;
+  }, [messages, lastReadTimestamp]);
+
+  // Quand on ouvre le chat, marquer comme lu
+  useEffect(() => {
+    if (isChatOpen) {
+      markAsRead();
+    }
+  }, [isChatOpen, markAsRead]);
+
   return (
     <ChatContext.Provider
       value={{
@@ -280,6 +323,8 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         sendMessage,
         getMessagesForTable,
         getMessagesForSeller,
+        getUnreadCount,
+        markAsRead,
         isOnline,
         isChatOpen,
         toggleChat,

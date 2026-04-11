@@ -7,7 +7,33 @@
     <meta name="description" content="Plateforme de commande à table rapide avec paiement mobile (Orange Money, Mvola, Airtel Money)" />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="loading-screen" style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f8fafc;font-family:system-ui,-apple-system,sans-serif;">
+        <div style="text-align:center;">
+          <div style="font-size:48px;margin-bottom:16px;">🍔</div>
+          <div style="font-size:18px;color:#475569;">Chargement...</div>
+        </div>
+      </div>
+    </div>
+    <script>
+      window.onerror = function(msg, url, line, col, error) {
+        console.error('Global error:', msg, url, line, col, error);
+        var root = document.getElementById('root');
+        if (root) {
+          root.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f8fafc;font-family:system-ui;flex-direction:column;padding:20px;text-align:center;">' +
+            '<div style="font-size:48px;margin-bottom:16px;">⚠️</div>' +
+            '<h2 style="color:#1e293b;margin-bottom:12px;">Erreur de chargement</h2>' +
+            '<p style="color:#64748b;margin-bottom:8px;">Message: ' + msg + '</p>' +
+            '<p style="color:#94a3b8;font-size:12px;margin-bottom:20px;">Fichier: ' + url + ' ligne ' + line + '</p>' +
+            '<button onclick="localStorage.clear();location.reload();" style="background:#3b82f6;color:white;border:none;border-radius:12px;padding:12px 32px;font-size:16px;cursor:pointer;">Effacer cache et recharger</button>' +
+            '</div>';
+        }
+        return true;
+      };
+      window.onunhandledrejection = function(event) {
+        console.error('Unhandled promise:', event.reason);
+      };
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
