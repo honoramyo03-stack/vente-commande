@@ -27,6 +27,25 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'list' })
   };
 
   const cartQuantity = getProductQuantity(product.id);
+
+  const optimizeImageUrl = (url?: string, width = 640) => {
+    if (!url) return '';
+    if (url.startsWith('data:') || url.startsWith('blob:')) return url;
+    if (!url.includes('images.unsplash.com')) return url;
+
+    const [base, query = ''] = url.split('?');
+    const params = new URLSearchParams(query);
+    params.set('w', String(width));
+    params.set('q', '70');
+    params.set('fit', 'crop');
+    params.set('auto', 'format');
+    params.set('fm', 'webp');
+    return `${base}?${params.toString()}`;
+  };
+
+  const previewImageUrl = optimizeImageUrl(product.image, viewMode === 'grid' ? 700 : 520);
+  const modalImageUrl = optimizeImageUrl(product.image, 1200);
+
   const isInCart = cartQuantity > 0;
   const reachedStockLimit = product.quantity !== undefined && cartQuantity >= product.quantity;
 
@@ -113,9 +132,12 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'list' })
           {!imageError && product.image ? (
             <>
               <img
-                src={product.image}
+                src={previewImageUrl}
                 alt={product.name}
                 className="w-full h-full object-cover transition-transform group-hover/img:scale-105"
+                loading="lazy"
+                decoding="async"
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                 onError={() => setImageError(true)}
               />
               <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/20 transition-all flex items-center justify-center opacity-0 group-hover/img:opacity-100">
@@ -253,9 +275,12 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'list' })
           {!imageError && product.image ? (
             <>
               <img
-                src={product.image}
+                src={previewImageUrl}
                 alt={product.name}
                 className="w-full h-full object-cover hover:scale-110 transition-transform"
+                loading="lazy"
+                decoding="async"
+                sizes="(max-width: 640px) 35vw, 128px"
                 onError={() => setImageError(true)}
               />
               <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-all flex items-center justify-center">
@@ -401,7 +426,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'list' })
             <button onClick={() => setShowImageModal(false)} className="absolute -top-3 -right-3 z-10 bg-white rounded-full p-2 shadow-lg hover:bg-gray-100">
               <X size={20} />
             </button>
-            <img src={product.image} alt={product.name} className="w-full rounded-2xl shadow-2xl object-contain max-h-[80vh]" />
+            <img src={modalImageUrl} alt={product.name} className="w-full rounded-2xl shadow-2xl object-contain max-h-[80vh]" loading="eager" decoding="async" />
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent rounded-b-2xl p-4">
               <h3 className="text-white font-bold text-lg">{product.name}</h3>
               <p className="text-white/80 text-sm">{product.description}</p>

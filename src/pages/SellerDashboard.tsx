@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Package, PlusCircle, CreditCard, UserPlus, Save, X, Edit2, Trash2, FileText, Download, Search, Wallet, User, Settings, BarChart3, Clock, TrendingUp, Award, Sun, Moon, Printer, Upload, Eye, Tag, ChevronRight, CheckCircle, AlertCircle, Timer, DollarSign, ShoppingBag, Users, Zap } from 'lucide-react';
-import jsPDF from 'jspdf';
-import * as XLSX from 'xlsx';
 import { useOrders, OrderStatus, Order } from '../contexts/OrdersContext';
 import { useCustomer } from '../contexts/CustomerContext';
 import SellerHeader from '../components/SellerHeader';
@@ -233,8 +231,9 @@ const SellerDashboard: React.FC = () => {
   };
 
   // Export PDF
-  const exportPDF = (period: string) => {
+  const exportPDF = async (period: string) => {
     try {
+      const { default: jsPDF } = await import('jspdf');
       const pdf = new jsPDF();
       pdf.setFontSize(20); pdf.text(`${restaurantSettings.name}`, 14, 22);
       pdf.setFontSize(14); pdf.text(`Rapport ${period}`, 14, 32);
@@ -255,8 +254,9 @@ const SellerDashboard: React.FC = () => {
   };
 
   // Export Excel
-  const exportExcel = (period: string) => {
+  const exportExcel = async (period: string) => {
     try {
+      const XLSX = await import('xlsx');
       const data = orders.filter(o => ['paid', 'preparing', 'ready', 'completed'].includes(o.status)).map(o => ({
         Date: new Date(o.createdAt).toLocaleString('fr-FR'), Table: o.tableNumber, Client: o.customerName,
         Articles: o.items?.map((i: any) => `${i.product?.name || i.name} x${i.quantity}`).join(', '),
