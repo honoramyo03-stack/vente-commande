@@ -43,6 +43,18 @@ interface CustomerProviderProps {
 const HEARTBEAT_INTERVAL = 30000; // 30 secondes
 const CUSTOMER_SESSION_KEY = 'customer_session';
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const isNetworkError = (error: unknown) => {
+  const message = String((error as any)?.message || '').toLowerCase();
+  return (
+    message.includes('failed to fetch') ||
+    message.includes('network') ||
+    message.includes('fetch') ||
+    message.includes('timeout')
+  );
+};
+
 export const CustomerProvider: React.FC<CustomerProviderProps> = ({ children }) => {
   const [customer, setCustomer] = useState<CustomerSession | null>(null);
   const [connectedCustomers, setConnectedCustomers] = useState<ConnectedCustomer[]>([]);
@@ -59,39 +71,51 @@ export const CustomerProvider: React.FC<CustomerProviderProps> = ({ children }) 
   // ===== RÉSERVER UNE TABLE (AVEC VERROUILLAGE MÉTIER) =====
   const reserveTableInSupabase = useCallback(async (name: string, tableNumber: number) => {
     if (!isSupabaseConfigured()) return;
+
+    const now = new Date().toISOString();
+
     try {
-      const now = new Date().toISOString();
-
-      const { data: rows, error: selectError } = await supabase
+      // 1) Tentative rapide d'insert (1 seul appel réseau)
+      let { error: insertError } = await supabase
         .from('connected_clients')
-        .select('*')
-        .eq('table_number', tableNumber);
+        .insert({
+          name,
+          table_number: tableNumber,
+          connected_at: now,
+          last_seen: now,
+        });
 
-      if (selectError) {
-        throw selectError;
+      // Compatibilite schema: colonne last_seen absente
+      if (insertError && String(insertError.message).toLowerCase().includes('last_seen')) {
+        const retryInsert = await supabase
+          .from('connected_clients')
+          .insert({
+            name,
+            table_number: tableNumber,
+            connected_at: now,
+          });
+        insertError = retryInsert.error;
       }
 
-      const existing = (rows ?? []).reduce((latest: any, current: any) => {
-        if (!latest) return current;
-        const latestTs = new Date(latest.last_seen ?? latest.connected_at ?? 0).getTime();
-        const currentTs = new Date(current.last_seen ?? current.connected_at ?? 0).getTime();
-        return currentTs > latestTs ? current : latest;
-      }, null);
+      // Insert OK: table reservee
+      if (!insertError) return;
 
-      // Si des doublons existent (ancienne mauvaise config DB), on garde la plus recente.
-      if (rows && rows.length > 1) {
-        const duplicateIds = rows.slice(1).map((r: any) => r.id).filter(Boolean);
-        if (duplicateIds.length) {
-          await supabase.from('connected_clients').delete().in('id', duplicateIds);
+      // 2) Conflit de table: verifier le proprietaire actuel
+      if (insertError.code === '23505') {
+        const { data: row, error: readError } = await supabase
+          .from('connected_clients')
+          .select('*')
+          .eq('table_number', tableNumber)
+          .single();
+
+        if (readError) throw readError;
+
+        const owner = String(row?.name || '').toLowerCase();
+        if (owner && owner !== name.toLowerCase()) {
+          throw new Error('TABLE_OCCUPIED');
         }
-      }
 
-      // Table deja occupee par un autre client: blocage strict
-      if (existing && String(existing.name).toLowerCase() !== name.toLowerCase()) {
-        throw new Error('TABLE_OCCUPIED');
-      }
-
-      if (existing) {
+        // 3) Meme client -> reconnexion / heartbeat update
         let { error: updateError } = await supabase
           .from('connected_clients')
           .update({
@@ -101,52 +125,54 @@ export const CustomerProvider: React.FC<CustomerProviderProps> = ({ children }) 
           })
           .eq('table_number', tableNumber);
 
-        // Compatibilite schema: certains environnements n'ont pas last_seen.
         if (updateError && String(updateError.message).toLowerCase().includes('last_seen')) {
-          const retry = await supabase
+          const retryUpdate = await supabase
             .from('connected_clients')
             .update({
               name,
               connected_at: now,
             })
             .eq('table_number', tableNumber);
-          updateError = retry.error;
+          updateError = retryUpdate.error;
         }
 
         if (updateError) throw updateError;
-      } else {
-        let { error: insertError } = await supabase
-          .from('connected_clients')
-          .insert({
-            name,
-            table_number: tableNumber,
-            connected_at: now,
-            last_seen: now,
-          });
-
-        // Compatibilite schema: certains environnements n'ont pas last_seen.
-        if (insertError && String(insertError.message).toLowerCase().includes('last_seen')) {
-          const retry = await supabase
-            .from('connected_clients')
-            .insert({
-              name,
-              table_number: tableNumber,
-              connected_at: now,
-            });
-          insertError = retry.error;
-        }
-
-        if (insertError) throw insertError;
+        return;
       }
+
+      throw insertError;
     } catch (e: any) {
       console.error('Erreur reservation table Supabase:', e);
-      // Unique constraint sur table_number: traduire en erreur metier claire.
       if (e?.code === '23505') {
         throw new Error('TABLE_OCCUPIED');
       }
       throw e;
     }
   }, []);
+
+  const reserveTableWithRetry = useCallback(async (name: string, tableNumber: number) => {
+    const maxAttempts = 5;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        await reserveTableInSupabase(name, tableNumber);
+        return;
+      } catch (error: any) {
+        if (error?.message === 'TABLE_OCCUPIED') {
+          throw error;
+        }
+
+        const shouldRetry = isNetworkError(error) && attempt < maxAttempts;
+        if (!shouldRetry) {
+          if (isNetworkError(error)) {
+            throw new Error('DB_UNREACHABLE');
+          }
+          throw error;
+        }
+
+        await sleep(400 * attempt);
+      }
+    }
+  }, [reserveTableInSupabase]);
 
   // ===== CHARGER LES CLIENTS CONNECTÉS =====
   const loadConnectedClients = useCallback(async () => {
@@ -185,7 +211,7 @@ export const CustomerProvider: React.FC<CustomerProviderProps> = ({ children }) 
           if (parsed?.name && parsed?.tableNumber) {
             try {
               // Re-enregistrer la presence cote serveur si necessaire.
-              await reserveTableInSupabase(parsed.name, parsed.tableNumber);
+               await reserveTableWithRetry(parsed.name, parsed.tableNumber);
               setCustomer(parsed);
               setSessionRestored(true);
             } catch {
@@ -214,7 +240,7 @@ export const CustomerProvider: React.FC<CustomerProviderProps> = ({ children }) 
     return () => {
       cancelled = true;
     };
-  }, [loadConnectedClients, reserveTableInSupabase]);
+  }, [loadConnectedClients, reserveTableWithRetry]);
 
   // ===== SOUSCRIPTION TEMPS RÉEL =====
   useEffect(() => {
@@ -338,7 +364,7 @@ export const CustomerProvider: React.FC<CustomerProviderProps> = ({ children }) 
     }
 
     try {
-      await reserveTableInSupabase(name, tableNumber);
+      await reserveTableWithRetry(name, tableNumber);
     } catch (e: any) {
       throw e;
     }
@@ -350,7 +376,7 @@ export const CustomerProvider: React.FC<CustomerProviderProps> = ({ children }) 
 
     // Recharger la liste connectee
     await loadConnectedClients();
-  }, [reserveTableInSupabase, loadConnectedClients]);
+  }, [reserveTableWithRetry, loadConnectedClients]);
 
   // ===== LOGOUT =====
   const logout = useCallback(async () => {

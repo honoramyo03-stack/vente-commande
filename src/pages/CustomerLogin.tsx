@@ -51,6 +51,9 @@ const CustomerLogin: React.FC = () => {
     if (error?.message === 'TABLE_OCCUPIED') {
       return `La table ${tableNumber} est deja occupee.`;
     }
+    if (error?.message === 'DB_UNREACHABLE') {
+      return 'Base indisponible temporairement. Reessayez dans quelques secondes.';
+    }
 
     const raw = String(error?.message || '').toLowerCase();
     if (raw.includes('permission denied') || raw.includes('row-level security')) {
@@ -60,7 +63,7 @@ const CustomerLogin: React.FC = () => {
       return 'Table connected_clients introuvable dans Supabase.';
     }
     if (raw.includes('network') || raw.includes('fetch')) {
-      return 'Connexion reseau impossible. Verifiez internet.';
+      return 'Connexion au serveur impossible. Verifiez internet et reessayez.';
     }
 
     return 'Erreur de connexion';

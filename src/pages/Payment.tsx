@@ -4,6 +4,11 @@ import Header from '../components/Header';
 import { useOrders, Order } from '../contexts/OrdersContext';
 import { useCart } from '../contexts/CartContext';
 import { useNotification } from '../contexts/NotificationContext';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import {
+  initiateMobileMoneyPayment,
+  isPaymentApiConfigured,
+} from '../lib/paymentApi';
 
 const Payment: React.FC = () => {
   const location = useLocation();
@@ -12,6 +17,8 @@ const Payment: React.FC = () => {
   const { clearCart } = useCart();
   const { notify } = useNotification();
   const [order, setOrder] = useState<Order | null>(null);
+  const [paymentLifecycle, setPaymentLifecycle] = useState<'idle' | 'pending' | 'paid' | 'failed'>('idle');
+  const [paymentRef, setPaymentRef] = useState<string | null>(null);
 
   useEffect(() => {
     if (location.state?.order) {
@@ -20,6 +27,62 @@ const Payment: React.FC = () => {
       navigate('/');
     }
   }, [location, navigate]);
+
+  useEffect(() => {
+    if (!order || !isPaymentApiConfigured()) return;
+
+    let cancelled = false;
+    const startPayment = async () => {
+      try {
+        const response = await initiateMobileMoneyPayment({
+          orderId: order.id,
+          provider: order.paymentMethod,
+        });
+        if (cancelled) return;
+        setPaymentLifecycle('pending');
+        setPaymentRef(response.externalReference || null);
+      } catch (error) {
+        if (cancelled) return;
+        console.error('Init payment API error:', error);
+        notify('API paiement non configuree. Mode validation manuelle actif.', 'warning');
+      }
+    };
+
+    startPayment();
+    return () => {
+      cancelled = true;
+    };
+  }, [order, notify]);
+
+  useEffect(() => {
+    if (!order || !isSupabaseConfigured()) return;
+
+    const channel = supabase
+      .channel(`payment-status-${order.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${order.id}` },
+        (payload: any) => {
+          const row = payload.new;
+          if (!row) return;
+          if (row.payment_status === 'paid' || row.status === 'paid') {
+            setPaymentLifecycle('paid');
+          } else if (row.payment_status === 'failed') {
+            setPaymentLifecycle('failed');
+          } else {
+            setPaymentLifecycle('pending');
+          }
+          if (row.payment_reference) {
+            setPaymentRef(row.payment_reference);
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [order]);
 
   if (!order) return null;
 
@@ -110,6 +173,30 @@ const Payment: React.FC = () => {
             </span>
           </div>
 
+          <div className="mb-4 text-left">
+            <span className="text-xs text-gray-500">Statut temps reel</span>
+            <div className="mt-1 flex items-center gap-2">
+              <span
+                className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
+                  paymentLifecycle === 'paid'
+                    ? 'bg-green-100 text-green-700'
+                    : paymentLifecycle === 'failed'
+                      ? 'bg-red-100 text-red-700'
+                      : 'bg-amber-100 text-amber-700'
+                }`}
+              >
+                {paymentLifecycle === 'paid'
+                  ? 'Paye'
+                  : paymentLifecycle === 'failed'
+                    ? 'Echoue'
+                    : paymentLifecycle === 'pending'
+                      ? 'En attente'
+                      : 'En attente'}
+              </span>
+              {paymentRef && <span className="text-xs text-gray-500">Ref: {paymentRef}</span>}
+            </div>
+          </div>
+
           {/* Infos du marchand */}
           <div className="bg-indigo-50 rounded-xl p-4 mb-4">
             <p className="text-xs text-indigo-600 mb-1">Payer au compte :</p>
@@ -147,7 +234,7 @@ const Payment: React.FC = () => {
             onClick={handleConfirmPayment}
             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3.5 px-4 rounded-xl shadow-md transition-all active:scale-95 mb-3"
           >
-            ✅ J'ai effectué le paiement
+            {paymentLifecycle === 'paid' ? '✅ Paiement confirme' : "✅ J'ai effectue le paiement"}
           </button>
 
           <p className="text-xs text-gray-400">

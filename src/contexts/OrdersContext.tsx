@@ -18,6 +18,8 @@ export interface Order {
   customerName?: string;
   notes?: string;
   estimatedMinutes?: number;
+  paymentStatus?: 'pending' | 'paid' | 'failed';
+  paymentReference?: string;
 }
 
 export interface Product {
@@ -174,6 +176,8 @@ export const OrdersProvider: React.FC<OrdersProviderProps> = ({ children }) => {
         customerName: o.client_name,
         notes: o.notes,
         estimatedMinutes: o.estimated_minutes,
+        paymentStatus: o.payment_status || 'pending',
+        paymentReference: o.payment_reference || undefined,
       }));
       setOrders(transformed);
       safeSetItem('orders_state', JSON.stringify(transformed));
@@ -363,6 +367,7 @@ export const OrdersProvider: React.FC<OrdersProviderProps> = ({ children }) => {
       try {
         const updates: any = { status };
         if (status === 'paid') { updates.payment_status = 'paid'; updates.paid_at = new Date().toISOString(); }
+      if (status === 'cancelled') { updates.payment_status = 'failed'; }
         if (status === 'completed') { updates.validated_at = new Date().toISOString(); }
         await supabase.from('orders').update(updates).eq('id', orderId);
       } catch (e) { console.error('Erreur maj commande:', e); }

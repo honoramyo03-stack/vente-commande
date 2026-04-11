@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: mobile-money-api
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
