@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { LayoutList, LayoutGrid } from 'lucide-react';
 import Header from '../components/Header';
 import ProductCard from '../components/ProductCard';
@@ -9,10 +9,13 @@ import { useChat } from '../contexts/ChatContext';
 
 const CustomerHome: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { products } = useOrders();
   const { customer, isLoggedIn, isReady } = useCustomer();
   const { setCurrentTableNumber, setCurrentCustomerName } = useChat();
   const [selectedCategory, setSelectedCategory] = useState('Tous');
+  const [showStockBadge, setShowStockBadge] = useState(false);
+  const [stockSummary, setStockSummary] = useState('Stock mis a jour');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => {
     const saved = localStorage.getItem('quickorder_viewmode');
     return (saved === 'grid' ? 'grid' : 'list') as 'list' | 'grid';
@@ -34,6 +37,23 @@ const CustomerHome: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('quickorder_viewmode', viewMode);
   }, [viewMode]);
+
+  // Afficher un badge de confirmation quand le stock est mis a jour apres commande.
+  useEffect(() => {
+    const state = location.state as { stockUpdated?: boolean; stockSummary?: string } | null;
+    if (!state?.stockUpdated) return;
+
+    setStockSummary(state.stockSummary || 'Stock mis a jour');
+    setShowStockBadge(true);
+
+    const timer = window.setTimeout(() => {
+      setShowStockBadge(false);
+    }, 4500);
+
+    navigate('/menu', { replace: true, state: {} });
+
+    return () => window.clearTimeout(timer);
+  }, [location.state, navigate]);
 
   // Extraire les catégories uniques des produits
   const categories = ['Tous', ...Array.from(new Set(products.map(p => p.category)))];
@@ -122,6 +142,14 @@ const CustomerHome: React.FC = () => {
             Sélectionnez vos produits et validez votre commande. Paiement rapide via Mobile Money.
           </p>
         </div>
+
+        {showStockBadge && (
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-800 px-4 py-2 text-sm font-semibold animate-pulse">
+            <span className="inline-block w-2 h-2 rounded-full bg-emerald-600" />
+            Stock mis a jour
+            <span className="text-emerald-700 font-medium">({stockSummary})</span>
+          </div>
+        )}
 
         {/* Nombre de produits */}
         <div className="flex items-center justify-between mb-3 sm:mb-4">

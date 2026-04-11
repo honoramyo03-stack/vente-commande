@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Package, PlusCircle, CreditCard, UserPlus, Save, X, Edit2, Trash2, FileText, Download, Search, Wallet, User, Settings, BarChart3, Clock, TrendingUp, Award, Sun, Moon, Printer, Upload, Eye, Tag, ChevronRight, CheckCircle, AlertCircle, Timer, DollarSign, ShoppingBag, Users, Zap } from 'lucide-react';
+import { Package, PlusCircle, CreditCard, UserPlus, Save, X, Edit2, Trash2, FileText, Download, Search, Wallet, User, Settings, BarChart3, Clock, TrendingUp, Award, Sun, Moon, Printer, Upload, Eye, Tag, ChevronRight, CheckCircle, AlertCircle, DollarSign, ShoppingBag, Users, Zap } from 'lucide-react';
 import { useOrders, OrderStatus, Order } from '../contexts/OrdersContext';
 import { useCustomer } from '../contexts/CustomerContext';
 import SellerHeader from '../components/SellerHeader';
@@ -44,6 +44,20 @@ const statusIcon: Record<string, React.ReactNode> = {
   completed: <CheckCircle size={14} />, cancelled: <AlertCircle size={14} />
 };
 
+const chunkBySize = <T,>(items: T[], size: number): T[][] => {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
+  return chunks;
+};
+
+type ReportHistoryItem = {
+  id: string;
+  period: string;
+  format: 'pdf' | 'excel';
+  generatedAt: string;
+  fileName: string;
+};
+
 const SellerDashboard: React.FC = () => {
   const navigate = useNavigate();
   const {
@@ -72,6 +86,20 @@ const SellerDashboard: React.FC = () => {
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [editingCategory, setEditingCategory] = useState<any>(null);
   const [editingPayment, setEditingPayment] = useState<string | null>(null);
+  const [autoDailyHour, setAutoDailyHour] = useState(() => {
+    try { return localStorage.getItem('auto_daily_report_hour') || '22:00'; } catch { return '22:00'; }
+  });
+  const [autoDailyEnabled, setAutoDailyEnabled] = useState(() => {
+    try { return localStorage.getItem('auto_daily_report_enabled') !== 'false'; } catch { return true; }
+  });
+  const [reportHistory, setReportHistory] = useState<ReportHistoryItem[]>(() => {
+    try {
+      const raw = localStorage.getItem('seller_report_history');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
 
   // Form - Product
   const [pName, setPName] = useState('');
@@ -145,6 +173,65 @@ const SellerDashboard: React.FC = () => {
     return { name, table: parseInt(table), orderCount: clientOrders.length, totalSpent: clientOrders.filter(o => ['paid', 'preparing', 'ready', 'completed'].includes(o.status)).reduce((s, o) => s + o.total, 0) };
   });
 
+  const accountColumns = chunkBySize([...sellerAccounts], 5);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('auto_daily_report_hour', autoDailyHour);
+      localStorage.setItem('auto_daily_report_enabled', autoDailyEnabled ? 'true' : 'false');
+    } catch {}
+  }, [autoDailyHour, autoDailyEnabled]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('seller_report_history', JSON.stringify(reportHistory));
+    } catch {}
+  }, [reportHistory]);
+
+  const addReportHistory = (period: string, format: 'pdf' | 'excel', fileName: string) => {
+    const item: ReportHistoryItem = {
+      id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      period,
+      format,
+      generatedAt: new Date().toISOString(),
+      fileName,
+    };
+    setReportHistory(prev => [item, ...prev].slice(0, 40));
+  };
+
+  useEffect(() => {
+    if (!autoDailyEnabled) return;
+    const timer = setInterval(async () => {
+      const now = new Date();
+      const hm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      if (hm !== autoDailyHour) return;
+      const today = now.toISOString().slice(0, 10);
+      const key = `auto_daily_report_last_run_${today}`;
+      if (localStorage.getItem(key) === 'done') return;
+      let pdfDone = false;
+      let excelDone = false;
+      try {
+        await exportPDF('journalier', true);
+        pdfDone = true;
+      } catch (error) {
+        console.error('Auto PDF failed', error);
+      }
+      try {
+        await exportExcel('journalier', true);
+        excelDone = true;
+      } catch (error) {
+        console.error('Auto Excel failed', error);
+      }
+      if (pdfDone || excelDone) {
+        localStorage.setItem(key, 'done');
+        notify(`Rapport auto ${pdfDone ? 'PDF' : ''}${pdfDone && excelDone ? ' + ' : ''}${excelDone ? 'Excel' : ''} généré (${autoDailyHour})`, 'success');
+      } else {
+        notify('Échec du rapport automatique', 'error');
+      }
+    }, 30000);
+    return () => clearInterval(timer);
+  }, [autoDailyEnabled, autoDailyHour]);
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -169,14 +256,14 @@ const SellerDashboard: React.FC = () => {
   const saveProduct = () => {
     if (!pName || !pPrice) { notify('Nom et prix obligatoires', 'error'); return; }
     const data = { name: pName, description: pDesc, price: parseFloat(pPrice), category: pCat, image: pImg, quantity: pQty ? parseInt(pQty) : undefined, estimatedMinutes: pEstTime ? parseInt(pEstTime) : undefined };
-    if (editingProduct) { updateProduct(editingProduct.id, data); notify('Produit mis à jour', 'success'); }
+    if (editingProduct) { updateProduct(editingProduct.id, data); notify('Produit mis à jour', 'info'); }
     else { addProduct(data as any); notify('Produit ajouté', 'success'); }
     setShowProductModal(false);
   };
 
   const saveCategory = () => {
     if (!catName) { notify('Nom obligatoire', 'error'); return; }
-    if (editingCategory) { updateCategory(editingCategory.id, { name: catName, icon: catIcon }); notify('Catégorie modifiée', 'success'); }
+    if (editingCategory) { updateCategory(editingCategory.id, { name: catName, icon: catIcon }); notify('Catégorie modifiée', 'info'); }
     else { addCategory({ name: catName, icon: catIcon, order: categories.length + 1 }); notify('Catégorie ajoutée', 'success'); }
     setShowCategoryModal(false); setCatName(''); setCatIcon(''); setEditingCategory(null);
   };
@@ -195,7 +282,7 @@ const SellerDashboard: React.FC = () => {
     const next = nextStatus[order.status];
     if (next) {
       updateOrderStatus(order.id, next);
-      notify(`Commande T${order.tableNumber} → ${statusLabel[next]}`, 'success');
+      notify(`Commande T${order.tableNumber} → ${statusLabel[next]}`, 'info');
     }
   };
 
@@ -230,51 +317,133 @@ const SellerDashboard: React.FC = () => {
     w.document.close();
   };
 
-  // Export PDF
-  const exportPDF = async (period: string) => {
-    try {
-      const { default: jsPDF } = await import('jspdf');
-      const pdf = new jsPDF();
-      pdf.setFontSize(20); pdf.text(`${restaurantSettings.name}`, 14, 22);
-      pdf.setFontSize(14); pdf.text(`Rapport ${period}`, 14, 32);
-      pdf.setFontSize(10); pdf.text(`Généré le ${new Date().toLocaleString('fr-FR')}`, 14, 40);
-      pdf.setFontSize(11);
-      pdf.text(`Commandes: ${totalOrders} | CA: ${formatPrice(totalRevenue)} | TVA: ${formatPrice(vatAmount)}`, 14, 50);
-      let y = 62;
-      pdf.setFontSize(9);
-      orders.filter(o => ['paid', 'preparing', 'ready', 'completed'].includes(o.status)).slice(0, 50).forEach(o => {
-        if (y > 280) { pdf.addPage(); y = 20; }
-        pdf.text(`${new Date(o.createdAt).toLocaleString('fr-FR')} | T${o.tableNumber} | ${o.customerName} | ${formatPrice(o.total)} | ${statusLabel[o.status] || o.status}`, 14, y);
-        y += 7;
-      });
-      const blob = pdf.output('blob');
-      downloadBlob(blob, `rapport_${period}_${new Date().toISOString().slice(0, 10)}.pdf`);
-      notify('PDF généré', 'success');
-    } catch (e) { notify('Erreur PDF', 'error'); console.error(e); }
+  const getPeriodOrders = (period: string) => {
+    const now = new Date();
+    const paidOrders = orders.filter(o => ['paid', 'preparing', 'ready', 'completed'].includes(o.status));
+    return paidOrders.filter(o => {
+      const d = new Date(o.createdAt);
+      if (period === 'journalier') return d.toDateString() === now.toDateString();
+      if (period === 'hebdomadaire') {
+        const start = new Date(now);
+        start.setDate(now.getDate() - 7);
+        return d >= start;
+      }
+      if (period === 'mensuel') return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      if (period === 'trimestriel') {
+        const quarter = Math.floor(now.getMonth() / 3);
+        return Math.floor(d.getMonth() / 3) === quarter && d.getFullYear() === now.getFullYear();
+      }
+      return true;
+    });
   };
 
-  // Export Excel
-  const exportExcel = async (period: string) => {
+  const buildReportFileName = (period: string, format: 'pdf' | 'excel') => {
+    const ext = format === 'pdf' ? 'pdf' : 'xlsx';
+    return `rapport_${period}_${new Date().toISOString().slice(0, 10)}.${ext}`;
+  };
+
+  const generatePDFBlob = async (period: string) => {
+    const { default: jsPDF } = await import('jspdf');
+    const periodOrders = getPeriodOrders(period);
+    const periodRevenue = periodOrders.reduce((sum, o) => sum + o.total, 0);
+    const periodVat = periodRevenue * (restaurantSettings.vatRate / 100);
+
+    const pdf = new jsPDF();
+    pdf.setFontSize(20); pdf.text(`${restaurantSettings.name}`, 14, 22);
+    pdf.setFontSize(14); pdf.text(`Rapport ${period}`, 14, 32);
+    pdf.setFontSize(10); pdf.text(`Généré le ${new Date().toLocaleString('fr-FR')}`, 14, 40);
+    pdf.setFontSize(11);
+    pdf.text(`Commandes: ${periodOrders.length} | CA: ${formatPrice(periodRevenue)} | TVA: ${formatPrice(periodVat)}`, 14, 50);
+    let y = 62;
+    pdf.setFontSize(9);
+    periodOrders.slice(0, 120).forEach(o => {
+      if (y > 280) { pdf.addPage(); y = 20; }
+      pdf.text(`${new Date(o.createdAt).toLocaleString('fr-FR')} | T${o.tableNumber} | ${o.customerName} | ${formatPrice(o.total)} | ${statusLabel[o.status] || o.status}`, 14, y);
+      y += 7;
+    });
+    return pdf.output('blob');
+  };
+
+  const generateExcelBlob = async (period: string) => {
+    const XLSX = await import('xlsx');
+    const periodOrders = getPeriodOrders(period);
+    const periodRevenue = periodOrders.reduce((sum, o) => sum + o.total, 0);
+    const periodVat = periodRevenue * (restaurantSettings.vatRate / 100);
+
+    const data = periodOrders.map(o => ({
+      Date: new Date(o.createdAt).toLocaleString('fr-FR'), Table: o.tableNumber, Client: o.customerName,
+      Articles: o.items?.map((i: any) => `${i.product?.name || i.name} x${i.quantity}`).join(', '),
+      Total: o.total, Statut: statusLabel[o.status] || o.status, Paiement: o.paymentMethod,
+    }));
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(data);
+    ws['!cols'] = [{ wch: 20 }, { wch: 8 }, { wch: 15 }, { wch: 40 }, { wch: 12 }, { wch: 15 }, { wch: 15 }];
+    XLSX.utils.book_append_sheet(wb, ws, 'Commandes');
+    const summaryWs = XLSX.utils.json_to_sheet([{
+      Periode: period,
+      Total_Commandes: periodOrders.length,
+      Chiffre_Affaires: periodRevenue,
+      TVA: periodVat,
+    }]);
+    XLSX.utils.book_append_sheet(wb, summaryWs, 'Résumé');
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    return new Blob([wbout], { type: 'application/octet-stream' });
+  };
+
+  const exportPDF = async (period: string, silent = false) => {
     try {
-      const XLSX = await import('xlsx');
-      const data = orders.filter(o => ['paid', 'preparing', 'ready', 'completed'].includes(o.status)).map(o => ({
-        Date: new Date(o.createdAt).toLocaleString('fr-FR'), Table: o.tableNumber, Client: o.customerName,
-        Articles: o.items?.map((i: any) => `${i.product?.name || i.name} x${i.quantity}`).join(', '),
-        Total: o.total, Statut: statusLabel[o.status] || o.status, Paiement: o.paymentMethod,
-      }));
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(data);
-      ws['!cols'] = [{ wch: 20 }, { wch: 8 }, { wch: 15 }, { wch: 40 }, { wch: 12 }, { wch: 15 }, { wch: 15 }];
-      XLSX.utils.book_append_sheet(wb, ws, 'Commandes');
-      const summaryWs = XLSX.utils.json_to_sheet([{
-        'Total Commandes': totalOrders, 'Chiffre_Affaires': totalRevenue,
-        'TVA': vatAmount, 'Commandes_Completees': completedOrders,
-      }]);
-      XLSX.utils.book_append_sheet(wb, summaryWs, 'Résumé');
-      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-      downloadBlob(new Blob([wbout], { type: 'application/octet-stream' }), `rapport_${period}_${new Date().toISOString().slice(0, 10)}.xlsx`);
-      notify('Excel généré', 'success');
-    } catch (e) { notify('Erreur Excel', 'error'); console.error(e); }
+      const blob = await generatePDFBlob(period);
+      const fileName = buildReportFileName(period, 'pdf');
+      downloadBlob(blob, fileName);
+      addReportHistory(period, 'pdf', fileName);
+      if (!silent) notify('PDF généré', 'success');
+    } catch (e) {
+      if (!silent) notify('Erreur PDF', 'error');
+      console.error(e);
+      throw e;
+    }
+  };
+
+  const exportExcel = async (period: string, silent = false) => {
+    try {
+      const blob = await generateExcelBlob(period);
+      const fileName = buildReportFileName(period, 'excel');
+      downloadBlob(blob, fileName);
+      addReportHistory(period, 'excel', fileName);
+      if (!silent) notify('Excel généré', 'success');
+    } catch (e) {
+      if (!silent) notify('Erreur Excel', 'error');
+      console.error(e);
+      throw e;
+    }
+  };
+
+  const openReportHistoryItem = async (item: ReportHistoryItem) => {
+    if (item.format === 'pdf') {
+      const blob = await generatePDFBlob(item.period);
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      return;
+    }
+    const blob = await generateExcelBlob(item.period);
+    downloadBlob(blob, item.fileName);
+  };
+
+  const printReportHistoryItem = async (item: ReportHistoryItem) => {
+    if (item.format !== 'pdf') {
+      notify('Impression directe disponible uniquement pour PDF', 'warning');
+      return;
+    }
+    const blob = await generatePDFBlob(item.period);
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, '_blank');
+    if (w) {
+      w.onload = () => {
+        w.print();
+      };
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
 
   const bg = darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900';
@@ -378,26 +547,33 @@ const SellerDashboard: React.FC = () => {
             </div>
             <div className="space-y-3">
               {filteredOrders.map(order => {
-                const est = getEstimatedTimeRemaining(order);
-                const isOvertime = est && est.remaining < 0;
                 const nextStatus: Record<string, string> = { pending: 'Payé', paid: 'Préparer', preparing: 'Prêt', ready: 'Terminer' };
                 const canValidate = !!nextStatus[order.status];
+                const isLocked = order.status === 'completed' || order.status === 'cancelled';
                 return (
-                  <div key={order.id} className={`${cardBg} border rounded-2xl p-4 shadow-sm`}>
+                  <div key={order.id} className={`${cardBg} border rounded-2xl p-4 shadow-sm ${isLocked ? 'opacity-85' : ''}`}>
                     {/* Header */}
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-bold bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-xl">T{order.tableNumber}</span>
-                        <div>
-                          <p className="text-base font-semibold">{order.customerName || 'Client'}</p>
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <span className="text-sm font-bold bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-xl whitespace-nowrap">T{order.tableNumber}</span>
+                        <div className="min-w-0">
+                          <p className="text-base font-semibold truncate">{order.customerName || 'Client'}</p>
                           <p className={`text-xs ${textSec}`}>{new Date(order.createdAt).toLocaleString('fr-FR')}</p>
                         </div>
                       </div>
+
                       <div className="flex items-center gap-2">
-                        <button onClick={() => printReceipt(order)} className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors" title="Imprimer">
+                        <button
+                          onClick={() => printReceipt(order)}
+                          className="p-2 rounded-xl transition-colors bg-gray-100 hover:bg-gray-200"
+                          title="Imprimer"
+                        >
                           <Printer size={16} />
                         </button>
-                        <button onClick={() => navigate(`/seller/orders/${order.id}`)} className="p-2 rounded-xl bg-indigo-100 hover:bg-indigo-200 text-indigo-700 transition-colors">
+                        <button
+                          onClick={() => navigate(`/seller/orders/${order.id}`)}
+                          className="p-2 rounded-xl transition-colors bg-indigo-100 hover:bg-indigo-200 text-indigo-700"
+                        >
                           <Eye size={16} />
                         </button>
                       </div>
@@ -419,40 +595,20 @@ const SellerDashboard: React.FC = () => {
                         </span>
                         <span className="text-lg font-bold">{formatPrice(order.total)}</span>
                       </div>
-                      <select value={order.status} onChange={e => updateOrderStatus(order.id, e.target.value as OrderStatus)}
-                        className="text-sm px-3 py-2 rounded-xl border bg-gray-50 font-medium">
+                      <select
+                        value={order.status}
+                        disabled={isLocked}
+                        onChange={e => updateOrderStatus(order.id, e.target.value as OrderStatus)}
+                        className={`text-sm px-3 py-2 rounded-xl border bg-gray-50 font-medium ${isLocked ? 'cursor-not-allowed opacity-60' : ''}`}
+                      >
                         <option value="pending">En attente</option><option value="paid">Payé</option>
                         <option value="preparing">En préparation</option><option value="ready">Prêt</option>
                         <option value="completed">Terminé</option><option value="cancelled">Annulé</option>
                       </select>
                     </div>
 
-                    {/* Estimated time */}
-                    {est && (
-                      <div className={`mt-3 flex items-center justify-between p-3 rounded-xl ${isOvertime ? 'bg-red-50 border border-red-200' : 'bg-blue-50 border border-blue-200'}`}>
-                        <div className="flex items-center gap-2">
-                          <Timer size={16} className={isOvertime ? 'text-red-500' : 'text-blue-500'} />
-                          <div>
-                            <p className={`text-sm font-bold ${isOvertime ? 'text-red-700' : 'text-blue-700'}`}>
-                              {isOvertime ? '⏰ Temps dépassé !' : `⏱ Temps estimé: ${est.total} min`}
-                            </p>
-                            <p className={`text-xs ${isOvertime ? 'text-red-500' : 'text-blue-500'}`}>
-                              {isOvertime ? `Dépassé de ${Math.abs(est.remaining)} min` : `Reste ${est.remaining} min (${est.elapsed}/${est.total} min écoulées)`}
-                            </p>
-                          </div>
-                        </div>
-                        {/* Progress bar */}
-                        <div className="w-24">
-                          <div className={`w-full rounded-full h-2 ${isOvertime ? 'bg-red-200' : 'bg-blue-200'}`}>
-                            <div className={`h-full rounded-full transition-all ${isOvertime ? 'bg-red-500' : 'bg-blue-500'}`}
-                              style={{ width: `${Math.min(100, (est.elapsed / est.total) * 100)}%` }} />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
                     {/* Validate button */}
-                    {canValidate && (
+                    {canValidate && !isLocked && (
                       <button onClick={() => validateOrder(order)}
                         className={`mt-3 w-full py-3 rounded-xl text-base font-bold flex items-center justify-center gap-2 transition-all shadow-sm ${
                           order.status === 'pending' ? 'bg-blue-600 hover:bg-blue-700 text-white' :
@@ -463,6 +619,12 @@ const SellerDashboard: React.FC = () => {
                         <CheckCircle size={18} />
                         Valider → {nextStatus[order.status]}
                       </button>
+                    )}
+
+                    {isLocked && (
+                      <div className="mt-3 w-full py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold text-center">
+                        Commande verrouillee: aucune modification possible
+                      </div>
                     )}
                   </div>
                 );
@@ -485,7 +647,7 @@ const SellerDashboard: React.FC = () => {
                   className={`w-full text-sm pl-11 pr-4 py-3 rounded-xl border ${cardBg}`} />
               </div>
             </div>
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
               {products.filter(p => !productFilter || p.name.toLowerCase().includes(productFilter.toLowerCase())).map(p => (
                 <div key={p.id} className={`${cardBg} border rounded-2xl p-4 shadow-sm`}>
                   <div className="flex items-center gap-4">
@@ -513,7 +675,7 @@ const SellerDashboard: React.FC = () => {
                       )}
                       <div className="flex gap-2">
                         <button onClick={() => openProductModal(p)} className="p-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors"><Edit2 size={16} /></button>
-                        <button onClick={() => { deleteProduct(p.id); notify('Produit supprimé', 'success'); }} className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 transition-colors"><Trash2 size={16} /></button>
+                        <button onClick={() => { deleteProduct(p.id); notify('Produit supprimé', 'warning'); }} className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 transition-colors"><Trash2 size={16} /></button>
                       </div>
                     </div>
                   </div>
@@ -530,14 +692,14 @@ const SellerDashboard: React.FC = () => {
               className="flex items-center gap-2 px-4 py-3 bg-indigo-600 text-white rounded-xl text-sm font-bold mb-4 shadow-sm">
               <PlusCircle size={18} /> Nouvelle Catégorie
             </button>
-            <div className="space-y-3">
-              {categories.sort((a, b) => a.order - b.order).map(c => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
+              {[...categories].sort((a, b) => a.order - b.order).map(c => (
                 <div key={c.id} className={`${cardBg} border rounded-2xl p-4 flex items-center justify-between shadow-sm`}>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
                     <span className="text-2xl">{c.icon || '📦'}</span>
-                    <div>
-                      <span className="text-base font-semibold">{c.name}</span>
-                      <span className="ml-2 text-sm px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">
+                    <div className="min-w-0">
+                      <p className="text-base font-semibold truncate">{c.name}</p>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">
                         {products.filter(p => p.category === c.name).length} produits
                       </span>
                     </div>
@@ -545,7 +707,7 @@ const SellerDashboard: React.FC = () => {
                   <div className="flex gap-2">
                     <button onClick={() => { setEditingCategory(c); setCatName(c.name); setCatIcon(c.icon || ''); setShowCategoryModal(true); }}
                       className="p-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors"><Edit2 size={16} /></button>
-                    <button onClick={() => { deleteCategory(c.id); notify('Catégorie supprimée', 'success'); }}
+                    <button onClick={() => { deleteCategory(c.id); notify('Catégorie supprimée', 'warning'); }}
                       className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 transition-colors"><Trash2 size={16} /></button>
                   </div>
                 </div>
@@ -644,9 +806,9 @@ const SellerDashboard: React.FC = () => {
             </div>
 
             {/* Category Distribution */}
-            {categoryData.length > 0 && (
-              <div className={`${cardBg} border rounded-2xl p-5 shadow-sm`}>
-                <h3 className="text-lg font-bold flex items-center gap-2 mb-4"><BarChart3 size={20} className="text-purple-500" /> 📊 Par catégorie</h3>
+            <div className={`${cardBg} border rounded-2xl p-5 shadow-sm`}>
+              <h3 className="text-lg font-bold flex items-center gap-2 mb-4"><BarChart3 size={20} className="text-purple-500" /> 📊 Par catégorie</h3>
+              {categoryData.length > 0 ? (
                 <div className="space-y-3">
                   {categoryData.map((c, i) => {
                     const total = categoryData.reduce((s, x) => s + x.value, 0);
@@ -663,26 +825,32 @@ const SellerDashboard: React.FC = () => {
                     );
                   })}
                 </div>
-              </div>
-            )}
+              ) : (
+                <p className="text-base text-gray-400 text-center py-6">Aucune donnée par catégorie pour le moment</p>
+              )}
+            </div>
 
           </div>
         )}
 
         {/* ========== PAYMENTS TAB ========== */}
         {activeTab === 'payments' && (
-          <div className="space-y-4">
+          <div className="flex gap-4 overflow-x-auto no-scrollbar pb-1">
             {Object.entries(paymentNumbers).map(([key, info]) => {
               const provider = key === 'orange_money' ? 'Orange Money' : key === 'mvola' ? 'Mvola' : 'Airtel Money';
               const color = key === 'orange_money' ? 'from-orange-500 to-orange-400' : key === 'mvola' ? 'from-red-600 to-red-500' : 'from-red-500 to-red-400';
               const icon = key === 'orange_money' ? '🟠' : key === 'mvola' ? '🔴' : '🟣';
               return (
-                <div key={key} className={`${cardBg} border rounded-2xl p-5 shadow-sm`}>
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className={`bg-gradient-to-r ${color} text-white px-4 py-2 rounded-xl text-sm font-bold`}>
+                <div key={key} className={`${cardBg} border rounded-2xl p-5 shadow-sm min-w-[320px] flex-1`}>
+                  <div className={`grid grid-cols-3 items-center gap-3 mb-3 text-sm`}>
+                    <div className={`bg-gradient-to-r ${color} text-white px-3 py-2 rounded-xl font-bold text-center`}>
                       {icon} {provider}
                     </div>
-                    <span className={`text-sm ${textSec}`}>Marchand: <strong>{info.merchantName}</strong></span>
+                    <div className={`text-center ${textSec}`}>
+                      Marchand<br />
+                      <strong className={darkMode ? 'text-gray-100' : 'text-gray-900'}>{info.merchantName}</strong>
+                    </div>
+                    <div className="text-right font-mono font-bold text-lg">{info.number}</div>
                   </div>
                   {editingPayment === key ? (
                     <div className="space-y-3">
@@ -690,14 +858,13 @@ const SellerDashboard: React.FC = () => {
                         className={inputCls} placeholder="Numéro" />
                       <input type="text" value={info.merchantName} onChange={e => updatePaymentNumber(key as any, { ...info, merchantName: e.target.value })}
                         className={inputCls} placeholder="Nom marchand" />
-                      <button onClick={() => { setEditingPayment(null); notify('Paiement mis à jour', 'success'); }}
+                      <button onClick={() => { setEditingPayment(null); notify('Paiement mis à jour', 'info'); }}
                         className="flex items-center gap-2 px-4 py-3 bg-green-600 text-white rounded-xl text-sm font-bold shadow-sm">
                         <Save size={16} /> Enregistrer
                       </button>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-between">
-                      <p className="text-xl font-mono font-bold">{info.number}</p>
+                    <div className="flex justify-end">
                       <button onClick={() => setEditingPayment(key)} className="p-2.5 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">
                         <Edit2 size={18} />
                       </button>
@@ -716,20 +883,24 @@ const SellerDashboard: React.FC = () => {
               className="flex items-center gap-2 px-4 py-3 bg-indigo-600 text-white rounded-xl text-sm font-bold mb-4 shadow-sm">
               <UserPlus size={18} /> Nouveau Compte
             </button>
-            <div className="space-y-3">
-              {sellerAccounts.map(a => (
-                <div key={a.username} className={`${cardBg} border rounded-2xl p-4 flex items-center justify-between shadow-sm`}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center"><User size={20} className="text-indigo-700" /></div>
-                    <div>
-                      <p className="text-base font-semibold">{a.username}</p>
-                      <p className={`text-sm ${textSec}`}>{a.role || 'vendeur'}</p>
+            <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+              {accountColumns.map((column, colIdx) => (
+                <div key={colIdx} className="min-w-[280px] space-y-3">
+                  {column.map(a => (
+                    <div key={a.username} className={`${cardBg} border rounded-2xl p-4 flex items-center justify-between shadow-sm`}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center"><User size={20} className="text-indigo-700" /></div>
+                        <div>
+                          <p className="text-base font-semibold">{a.username}</p>
+                          <p className={`text-sm ${textSec}`}>{a.role || 'vendeur'}</p>
+                        </div>
+                      </div>
+                      {a.username !== 'admin' && (
+                        <button onClick={() => { deleteSellerAccount(a.username); notify('Compte supprimé', 'warning'); }}
+                          className="p-2.5 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition-colors"><Trash2 size={16} /></button>
+                      )}
                     </div>
-                  </div>
-                  {a.username !== 'admin' && (
-                    <button onClick={() => { deleteSellerAccount(a.username); notify('Compte supprimé', 'success'); }}
-                      className="p-2.5 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition-colors"><Trash2 size={16} /></button>
-                  )}
+                  ))}
                 </div>
               ))}
             </div>
@@ -739,25 +910,97 @@ const SellerDashboard: React.FC = () => {
         {/* ========== REPORTS TAB ========== */}
         {activeTab === 'reports' && (
           <div className="space-y-4">
-            {['journalier', 'hebdomadaire', 'mensuel', 'trimestriel'].map(period => (
-              <div key={period} className={`${cardBg} border rounded-2xl p-5 shadow-sm`}>
-                <p className="text-lg font-bold mb-3">📊 Rapport {period}</p>
-                <div className="flex gap-3">
-                  <button onClick={() => exportPDF(period)} className="flex items-center gap-2 px-4 py-3 bg-red-600 text-white rounded-xl text-sm font-bold shadow-sm">
-                    <Download size={16} /> PDF
-                  </button>
-                  <button onClick={() => exportExcel(period)} className="flex items-center gap-2 px-4 py-3 bg-green-600 text-white rounded-xl text-sm font-bold shadow-sm">
-                    <Download size={16} /> Excel
-                  </button>
+            <div className="flex gap-4 overflow-x-auto no-scrollbar pb-1">
+              {['journalier', 'hebdomadaire', 'mensuel', 'trimestriel'].map(period => (
+                <div key={period} className={`${cardBg} border rounded-2xl p-5 shadow-sm min-w-[300px] flex-1`}>
+                  <p className="text-lg font-bold mb-3">📊 Rapport {period}</p>
+                  <div className="flex gap-3">
+                    <button onClick={() => exportPDF(period)} className="flex items-center gap-2 px-4 py-3 bg-red-600 text-white rounded-xl text-sm font-bold shadow-sm">
+                      <Download size={16} /> PDF
+                    </button>
+                    <button onClick={() => exportExcel(period)} className="flex items-center gap-2 px-4 py-3 bg-green-600 text-white rounded-xl text-sm font-bold shadow-sm">
+                      <Download size={16} /> Excel
+                    </button>
+                  </div>
+                  {period === 'journalier' && (
+                    <div className={`mt-4 p-3 rounded-xl border ${darkMode ? 'border-gray-700 bg-gray-900/40' : 'border-gray-200 bg-gray-50'}`}>
+                      <p className="text-sm font-semibold mb-2">Déclenchement automatique (PDF + Excel)</p>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="time"
+                          value={autoDailyHour}
+                          onChange={(e) => setAutoDailyHour(e.target.value)}
+                          className={inputCls}
+                        />
+                        <label className="flex items-center gap-2 text-sm font-medium whitespace-nowrap">
+                          <input type="checkbox" checked={autoDailyEnabled} onChange={(e) => setAutoDailyEnabled(e.target.checked)} />
+                          Activer
+                        </label>
+                      </div>
+                    </div>
+                  )}
                 </div>
+              ))}
+            </div>
+
+            <div className={`${cardBg} border rounded-2xl p-5 shadow-sm`}>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-lg font-bold">🗂️ Historique des rapports</p>
+                {reportHistory.length > 0 && (
+                  <button
+                    onClick={() => setReportHistory([])}
+                    className="text-sm px-3 py-2 rounded-lg bg-red-50 text-red-600 font-semibold"
+                  >
+                    Vider
+                  </button>
+                )}
               </div>
-            ))}
+
+              {reportHistory.length === 0 ? (
+                <p className={`text-sm ${textSec}`}>Aucun rapport généré pour le moment.</p>
+              ) : (
+                <div className="space-y-2">
+                  {reportHistory.map((item) => (
+                    <div key={item.id} className={`flex flex-wrap items-center gap-2 md:gap-3 justify-between px-3 py-3 rounded-xl border ${darkMode ? 'border-gray-700 bg-gray-900/40' : 'border-gray-200 bg-gray-50'}`}>
+                      <div className="min-w-[180px]">
+                        <p className="text-sm font-bold">
+                          {item.format.toUpperCase()} - {item.period}
+                        </p>
+                        <p className={`text-xs ${textSec}`}>{new Date(item.generatedAt).toLocaleString('fr-FR')}</p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => openReportHistoryItem(item)}
+                          className="flex items-center gap-1 px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold"
+                        >
+                          <Eye size={14} /> Visualiser
+                        </button>
+                        <button
+                          onClick={() => printReportHistoryItem(item)}
+                          className="flex items-center gap-1 px-3 py-2 rounded-lg bg-gray-800 text-white text-xs font-semibold"
+                        >
+                          <Printer size={14} /> Imprimer
+                        </button>
+                        <button
+                          onClick={() => item.format === 'pdf' ? exportPDF(item.period, true) : exportExcel(item.period, true)}
+                          className="flex items-center gap-1 px-3 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold"
+                        >
+                          <Download size={14} /> Re-générer
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
         {/* ========== SETTINGS TAB ========== */}
         {activeTab === 'settings' && (
           <div className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className={`${cardBg} border rounded-2xl p-5 shadow-sm`}>
               <h3 className="text-lg font-bold mb-4">🏪 Restaurant</h3>
               <div className="space-y-4">
@@ -796,6 +1039,7 @@ const SellerDashboard: React.FC = () => {
                   <input type="text" value={restaurantSettings.currency} onChange={e => updateRestaurantSettings({ currency: e.target.value })} className={inputCls} />
                 </div>
               </div>
+            </div>
             </div>
 
             <div className={`${cardBg} border rounded-2xl p-5 shadow-sm`}>

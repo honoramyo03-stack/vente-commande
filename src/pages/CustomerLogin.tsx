@@ -8,21 +8,29 @@ const TOTAL_TABLES = 20;
 
 const CustomerLogin: React.FC = () => {
   const navigate = useNavigate();
-  const { login, isLoggedIn, connectedCustomers, isReady } = useCustomer();
+  const { login, isLoggedIn, connectedCustomers, isReady, sessionRestored } = useCustomer();
   const { notify } = useNotification();
   const [name, setName] = useState('');
   const [selectedTable, setSelectedTable] = useState<number | null>(null);
   const [customTableNumber, setCustomTableNumber] = useState('');
   const [useCustomTable, setUseCustomTable] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showRestoredBanner, setShowRestoredBanner] = useState(false);
 
   const occupiedTables = connectedCustomers.map(c => c.tableNumber);
 
   useEffect(() => {
     if (isReady && isLoggedIn) {
+      if (sessionRestored) {
+        setShowRestoredBanner(true);
+        const timer = setTimeout(() => {
+          navigate('/menu', { replace: true });
+        }, 1200);
+        return () => clearTimeout(timer);
+      }
       navigate('/menu', { replace: true });
     }
-  }, [isReady, isLoggedIn, navigate]);
+  }, [isReady, isLoggedIn, sessionRestored, navigate]);
 
   const isTableOccupied = (tableNum: number) => occupiedTables.includes(tableNum);
 
@@ -39,6 +47,25 @@ const CustomerLogin: React.FC = () => {
     return selectedTable;
   };
 
+  const getLoginErrorMessage = (error: any, tableNumber: number) => {
+    if (error?.message === 'TABLE_OCCUPIED') {
+      return `La table ${tableNumber} est deja occupee.`;
+    }
+
+    const raw = String(error?.message || '').toLowerCase();
+    if (raw.includes('permission denied') || raw.includes('row-level security')) {
+      return 'Erreur base de donnees: verifiez les politiques RLS Supabase.';
+    }
+    if (raw.includes('connected_clients') && raw.includes('does not exist')) {
+      return 'Table connected_clients introuvable dans Supabase.';
+    }
+    if (raw.includes('network') || raw.includes('fetch')) {
+      return 'Connexion reseau impossible. Verifiez internet.';
+    }
+
+    return 'Erreur de connexion';
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) { notify('Veuillez entrer votre nom', 'error'); return; }
@@ -48,7 +75,12 @@ const CustomerLogin: React.FC = () => {
     if (isTableOccupied(tableNumber)) {
       if (isTableOccupiedBySameName(tableNumber, name.trim())) {
         setIsSubmitting(true);
-        try { await login(name.trim(), tableNumber); notify(`Bienvenue ${name} ! Reconnecté à la Table ${tableNumber}`, 'success'); } catch { notify('Erreur de connexion', 'error'); }
+        try {
+          await login(name.trim(), tableNumber);
+          notify(`Bienvenue ${name} ! Reconnecté à la Table ${tableNumber}`, 'success');
+        } catch (error: any) {
+          notify(getLoginErrorMessage(error, tableNumber), 'error');
+        }
         setIsSubmitting(false);
         return;
       } else {
@@ -58,7 +90,12 @@ const CustomerLogin: React.FC = () => {
     }
 
     setIsSubmitting(true);
-    try { await login(name.trim(), tableNumber); notify(`Bienvenue ${name} ! Table ${tableNumber}`, 'success'); } catch { notify('Erreur de connexion', 'error'); }
+    try {
+      await login(name.trim(), tableNumber);
+      notify(`Bienvenue ${name} ! Table ${tableNumber}`, 'success');
+    } catch (error: any) {
+      notify(getLoginErrorMessage(error, tableNumber), 'error');
+    }
     setIsSubmitting(false);
   };
 
@@ -119,6 +156,12 @@ const CustomerLogin: React.FC = () => {
               </div>
             </div>
 
+            {showRestoredBanner && (
+              <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+                Session restauree. Redirection en cours...
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* Name */}
               <div>
@@ -161,7 +204,7 @@ const CustomerLogin: React.FC = () => {
                             className={`
                               relative p-3 rounded-xl border-2 text-sm font-bold transition-all duration-200
                               ${occupied && !sameName
-                                ? 'bg-red-50 border-red-200 text-red-300 cursor-not-allowed'
+                                ? 'bg-red-100 border-red-400 text-red-600 cursor-not-allowed opacity-80'
                                 : sameName
                                   ? selected 
                                     ? 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-200 scale-105'

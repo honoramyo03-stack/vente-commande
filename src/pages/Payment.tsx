@@ -27,7 +27,13 @@ const Payment: React.FC = () => {
     updateOrderStatus(order.id, 'paid');
     clearCart();
     notify('Paiement confirmé avec succès !', 'success');
-    navigate('/menu', { replace: true });
+    navigate('/menu', {
+      replace: true,
+      state: {
+        stockUpdated: true,
+        stockSummary: `${order.items.length} produit${order.items.length > 1 ? 's' : ''} mis a jour`,
+      },
+    });
   };
 
   const getPaymentDetails = () => {

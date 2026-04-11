@@ -8,6 +8,8 @@ import SellerLogin from './pages/SellerLogin';
 import SellerDashboard from './pages/SellerDashboard';
 import OrderDetails from './pages/OrderDetails';
 import ChatWidget from './components/ChatWidget';
+import FloatingCartButton from './components/FloatingCartButton';
+import DatabaseStatusBadge from './components/DatabaseStatusBadge';
 import { CartProvider } from './contexts/CartContext';
 import { ChatProvider } from './contexts/ChatContext';
 import { OrdersProvider } from './contexts/OrdersContext';
@@ -42,6 +44,8 @@ function App() {
                       <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
                     
+                    <FloatingCartButton />
+                    <DatabaseStatusBadge />
                     {/* Chat Widget - visible on customer pages */}
                     <ChatWidget />
                   </div>

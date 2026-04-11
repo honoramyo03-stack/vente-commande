@@ -3,11 +3,13 @@ import { MessageSquare, X, Send, User, Store, Filter, Users, Hash, CornerDownRig
 import { useChat } from '../contexts/ChatContext';
 import { useCustomer } from '../contexts/CustomerContext';
 import { useLocation } from 'react-router-dom';
+import { useNotification } from '../contexts/NotificationContext';
 
 const ChatWidget: React.FC = () => {
   const location = useLocation();
   const { messages, sendMessage, toggleChat, isChatOpen, getUnreadCount, markAsRead } = useChat();
   const { customer, connectedCustomers, isLoggedIn } = useCustomer();
+  const { notify } = useNotification();
 
   const [filterTable, setFilterTable] = useState<string>('');
   const [recipientType, setRecipientType] = useState<'seller' | 'client'>('seller');
@@ -85,22 +87,24 @@ const ChatWidget: React.FC = () => {
 
   // ========== ENVOI DE MESSAGE ==========
 
-  const handleMainSend = (e: React.FormEvent) => {
+  const handleMainSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!mainInput.trim()) return;
-    doSend(mainInput.trim());
-    setMainInput('');
+    const success = await doSend(mainInput.trim());
+    if (success) setMainInput('');
   };
 
-  const handleReplySend = (messageId: string) => {
+  const handleReplySend = async (messageId: string) => {
     const text = (replyInputs[messageId] || '').trim();
     if (!text) return;
-    doSend(text, messageId);
-    setReplyInputs(prev => ({ ...prev, [messageId]: '' }));
-    setReplyingTo(null);
+    const success = await doSend(text, messageId);
+    if (success) {
+      setReplyInputs(prev => ({ ...prev, [messageId]: '' }));
+      setReplyingTo(null);
+    }
   };
 
-  const doSend = (content: string, replyToMessageId?: string) => {
+  const doSend = async (content: string, replyToMessageId?: string): Promise<boolean> => {
     let replyToId = replyToMessageId;
     let replyToContent: string | undefined;
     let replyToSenderName: string | undefined;
@@ -114,44 +118,62 @@ const ChatWidget: React.FC = () => {
     }
 
     if (isSeller) {
-      if (!selectedRecipientTable) return;
-      sendMessage(
-        content,
-        'seller',
-        undefined,
-        'Vendeur',
-        'client',
-        parseInt(selectedRecipientTable),
-        replyToId,
-        replyToContent,
-        replyToSenderName,
-      );
-    } else {
-      if (recipientType === 'seller') {
-        sendMessage(
+      if (!selectedRecipientTable) return false;
+      try {
+        await sendMessage(
           content,
-          'client',
-          customer?.tableNumber,
-          customer?.name,
           'seller',
           undefined,
-          replyToId,
-          replyToContent,
-          replyToSenderName,
-        );
-      } else {
-        if (!selectedRecipientTable) return;
-        sendMessage(
-          content,
-          'client',
-          customer?.tableNumber,
-          customer?.name,
+          'Vendeur',
           'client',
           parseInt(selectedRecipientTable),
           replyToId,
           replyToContent,
           replyToSenderName,
         );
+        return true;
+      } catch {
+        notify('Envoi impossible. Verifiez la connexion base de donnees.', 'error');
+        return false;
+      }
+    } else {
+      if (recipientType === 'seller') {
+        try {
+          await sendMessage(
+            content,
+            'client',
+            customer?.tableNumber,
+            customer?.name,
+            'seller',
+            undefined,
+            replyToId,
+            replyToContent,
+            replyToSenderName,
+          );
+          return true;
+        } catch {
+          notify('Envoi impossible. Verifiez la connexion base de donnees.', 'error');
+          return false;
+        }
+      } else {
+        if (!selectedRecipientTable) return false;
+        try {
+          await sendMessage(
+            content,
+            'client',
+            customer?.tableNumber,
+            customer?.name,
+            'client',
+            parseInt(selectedRecipientTable),
+            replyToId,
+            replyToContent,
+            replyToSenderName,
+          );
+          return true;
+        } catch {
+          notify('Envoi impossible. Verifiez la connexion base de donnees.', 'error');
+          return false;
+        }
       }
     }
   };

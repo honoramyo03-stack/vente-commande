@@ -79,7 +79,7 @@ interface OrdersContextType {
   addProduct: (product: Omit<Product, 'id' | 'isActive'>) => void;
   updateProduct: (id: string, updates: Partial<Product>) => void;
   deleteProduct: (id: string) => void;
-  decreaseProductStock: (productId: string, quantity: number) => void;
+  decreaseProductStock: (productId: string, quantity: number, productName?: string) => Promise<void>;
 
   paymentNumbers: PaymentNumbers;
   updatePaymentNumber: (method: keyof PaymentNumbers, info: PaymentInfo) => void;
@@ -109,15 +109,6 @@ export const useOrders = () => {
   }
   return context;
 };
-
-const defaultProducts: Product[] = [
-  { id: '1', name: 'Pizza Margherita', description: 'Tomate, mozzarella, basilic', price: 12000, category: 'Pizza', image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400&h=300&fit=crop', quantity: 15, isActive: true },
-  { id: '2', name: 'Coca-Cola', description: 'Boisson gazeuse 33cl', price: 2000, category: 'Boissons', image: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&h=300&fit=crop', quantity: 50, isActive: true },
-  { id: '3', name: 'Burger Classique', description: 'Steak, fromage, salade, tomate', price: 8000, category: 'Burgers', image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=300&fit=crop', quantity: 20, isActive: true },
-  { id: '4', name: 'Fanta Orange', description: "Boisson gazeuse a l'orange 33cl", price: 2000, category: 'Boissons', image: 'https://images.unsplash.com/photo-1624517452488-04869289c4ca?w=400&h=300&fit=crop', quantity: 30, isActive: true },
-  { id: '5', name: 'Pizza Quatre Fromages', description: 'Mozzarella, gorgonzola, parmesan, chevre', price: 15000, category: 'Pizza', image: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400&h=300&fit=crop', isActive: true },
-  { id: '6', name: 'Tiramisu', description: 'Dessert italien au cafe et mascarpone', price: 6000, category: 'Desserts', image: 'https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=400&h=300&fit=crop', quantity: 10, isActive: true },
-];
 
 const defaultPaymentNumbers: PaymentNumbers = {
   orange_money: { number: '0323943234', merchantName: 'Honora' },
@@ -152,21 +143,8 @@ interface OrdersProviderProps {
   children: ReactNode;
 }
 
-const safeGetItem = (key: string) => {
-  try { return localStorage.getItem(key); } catch (e) { return null; }
-};
-
-const safeSetItem = (key: string, value: string) => {
-  try { localStorage.setItem(key, value); } catch (e) { console.error(e); }
-};
-
-const loadState = <T,>(key: string, fallback: T): T => {
-  try {
-    const saved = safeGetItem(key);
-    if (saved) return JSON.parse(saved);
-  } catch (e) { console.error(e); }
-  return fallback;
-};
+// Mode strict multi-utilisateur: ne pas persister les donnees partagees en localStorage.
+const safeSetItem = (_key: string, _value: string) => { /* no-op */ };
 
 export const OrdersProvider: React.FC<OrdersProviderProps> = ({ children }) => {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -252,25 +230,19 @@ export const OrdersProvider: React.FC<OrdersProviderProps> = ({ children }) => {
   // Initialisation
   useEffect(() => {
     const init = async () => {
-      const cachedOrders = loadState<any[]>('orders_state', []);
-      if (cachedOrders.length > 0) {
-        setOrders(cachedOrders.map(o => ({
-          ...o,
-          createdAt: new Date(o.createdAt),
-          paidAt: o.paidAt ? new Date(o.paidAt) : undefined,
-          validatedAt: o.validatedAt ? new Date(o.validatedAt) : undefined,
-        })));
-      }
-      setProducts(loadState('products_state', defaultProducts));
-      setPaymentNumbers(loadState('payment_numbers_state', defaultPaymentNumbers));
-      setSellerAccounts(loadState('seller_accounts_state', defaultSellers));
-      setCategories(loadState('categories_state', defaultCategories));
-      setRestaurantSettings(loadState('restaurant_settings', defaultSettings));
-
       if (isSupabaseConfigured()) {
         setIsOnline(true);
         await Promise.all([fetchOrders(), fetchProducts(), fetchPaymentNumbers(), fetchSellerAccounts()]);
+      } else {
+        // Source de verite unique = base de donnees
+        setOrders([]);
+        setProducts([]);
+        setIsOnline(false);
       }
+
+      // Donnees locales non partagees
+      setCategories(defaultCategories);
+      setRestaurantSettings(defaultSettings);
       setLoading(false);
     };
     init();
@@ -285,23 +257,103 @@ export const OrdersProvider: React.FC<OrdersProviderProps> = ({ children }) => {
     return () => { supabase.removeChannel(ordersCh); supabase.removeChannel(productsCh); supabase.removeChannel(paymentsCh); };
   }, [fetchOrders, fetchProducts, fetchPaymentNumbers]);
 
+  // Polling de secours pour garantir la synchro multi-appareils
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+
+    const syncAll = async () => {
+      await Promise.all([fetchOrders(), fetchProducts()]);
+    };
+
+    const interval = setInterval(syncAll, 5000);
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        syncAll();
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [fetchOrders, fetchProducts]);
+
   // Ajouter commande
   const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'status'>): Promise<Order> => {
-    const newOrder: Order = { ...orderData, id: `order_${Date.now()}`, status: 'pending', createdAt: new Date(), estimatedMinutes: restaurantSettings.defaultPrepTime };
-    if (isSupabaseConfigured()) {
+    if (!isSupabaseConfigured()) {
+      throw new Error('Base de donnees indisponible');
+    }
+
+    const newOrder: Order = {
+      ...orderData,
+      id: `order_${Date.now()}`,
+      status: 'pending',
+      createdAt: new Date(),
+      estimatedMinutes: restaurantSettings?.defaultPrepTime ?? defaultSettings.defaultPrepTime,
+    };
+    try {
+      // Insert minimal payload first for broad schema compatibility.
+      const { data, error } = await supabase
+        .from('orders')
+        .insert({
+          table_number: newOrder.tableNumber,
+          client_name: newOrder.customerName,
+          items: newOrder.items,
+          total: newOrder.total,
+          status: 'pending',
+          payment_method: newOrder.paymentMethod,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      newOrder.id = data.id;
+      if (data.created_at) {
+        newOrder.createdAt = new Date(data.created_at);
+      }
+
+      // Best-effort optional fields update (ignore if column missing).
       try {
-        const { data, error } = await supabase.from('orders').insert({
-          table_number: newOrder.tableNumber, client_name: newOrder.customerName,
-          items: newOrder.items, total: newOrder.total, status: 'pending',
-          payment_method: newOrder.paymentMethod, payment_status: 'pending',
-          estimated_minutes: newOrder.estimatedMinutes,
-        }).select().single();
-        if (error) throw error;
-        newOrder.id = data.id;
-      } catch (e) { console.error('Erreur création commande:', e); }
+        await supabase
+          .from('orders')
+          .update({
+            payment_status: 'pending',
+            estimated_minutes: newOrder.estimatedMinutes,
+            notes: newOrder.notes || null,
+          })
+          .eq('id', newOrder.id);
+      } catch (optionalError) {
+        console.warn('Colonnes optionnelles non disponibles sur orders:', optionalError);
+      }
+    } catch (e) {
+      console.error('Erreur création commande:', e);
+      throw new Error('Creation commande impossible (base de donnees)');
     }
     setOrders(prev => { const u = [newOrder, ...prev]; safeSetItem('orders_state', JSON.stringify(u)); return u; });
-    for (const item of newOrder.items) { await decreaseProductStock(item.product.id, item.quantity); }
+
+    // Mise à jour locale immédiate du stock pour un retour visuel instantané côté client.
+    setProducts(prev => {
+      const updated = prev.map((p) => {
+        const item = newOrder.items.find((i) => i.product.id === p.id || i.product.name === p.name);
+        if (!item || p.quantity === undefined) return p;
+        return { ...p, quantity: Math.max(0, p.quantity - item.quantity) };
+      });
+      safeSetItem('products_state', JSON.stringify(updated));
+      return updated;
+    });
+
+    try {
+      for (const item of newOrder.items) {
+        await decreaseProductStock(item.product.id, item.quantity, item.product.name);
+      }
+    } catch (e) {
+      console.error('Commande creee mais sync stock partielle:', e);
+      // Re-sync defensif pour limiter les ecarts de stock locaux.
+      await fetchProducts();
+    }
     return newOrder;
   };
 
@@ -368,29 +420,54 @@ export const OrdersProvider: React.FC<OrdersProviderProps> = ({ children }) => {
     setProducts(prev => { const u = prev.filter(p => p.id !== id); safeSetItem('products_state', JSON.stringify(u)); return u; });
   };
 
-  const decreaseProductStock = async (productId: string, quantity: number) => {
+  const decreaseProductStock = async (productId: string, quantity: number, productName?: string) => {
     let currentQuantity: number | undefined;
+    let resolvedProductId = productId;
     if (isSupabaseConfigured()) {
       try {
-        const { data, error } = await supabase.from('products').select('quantity').eq('id', productId).single();
+        let { data, error } = await supabase.from('products').select('id, quantity').eq('id', productId).single();
+
+        // Fallback utile si le panier contient un ancien id local: on tente par nom.
+        if ((error || !data) && productName) {
+          const byName = await supabase
+            .from('products')
+            .select('id, quantity')
+            .eq('name', productName)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          data = byName.data as any;
+          error = byName.error as any;
+        }
+
         if (error) throw error;
+        resolvedProductId = data?.id || productId;
         currentQuantity = data?.quantity;
-      } catch (e) { console.error('Erreur stock:', e); }
+      } catch (e) {
+        console.error('Erreur lecture stock:', e);
+        throw new Error('Lecture stock impossible');
+      }
     }
     if (currentQuantity === undefined) {
-      const product = products.find(p => p.id === productId);
-      if (!product || product.quantity === undefined) return;
-      currentQuantity = product.quantity;
+      throw new Error('Produit introuvable pour mise a jour de stock');
     }
     const newQuantity = Math.max(0, currentQuantity - quantity);
     if (isSupabaseConfigured()) {
-      try { await supabase.from('products').update({ quantity: newQuantity, updated_at: new Date().toISOString() }).eq('id', productId); } catch (e) { console.error(e); }
+      try {
+        const { error } = await supabase
+          .from('products')
+          .update({ quantity: newQuantity, updated_at: new Date().toISOString() })
+          .eq('id', resolvedProductId);
+        if (error) throw error;
+        // Recharger depuis la source centrale pour garantir la synchro inter-appareils.
+        await fetchProducts();
+        return;
+      } catch (e) {
+        console.error('Erreur mise a jour stock:', e);
+        throw new Error('Mise a jour stock impossible');
+      }
     }
-    setProducts(prev => {
-      const u = prev.map(p => p.id === productId && p.quantity !== undefined ? { ...p, quantity: newQuantity } : p);
-      safeSetItem('products_state', JSON.stringify(u));
-      return u;
-    });
+    throw new Error('Base de donnees indisponible pour mise a jour stock');
   };
 
   // Paiements

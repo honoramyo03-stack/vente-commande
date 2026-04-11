@@ -51,14 +51,6 @@ export const useChat = () => {
   return context;
 };
 
-const safeGetItem = (key: string) => {
-  try { return localStorage.getItem(key); } catch { return null; }
-};
-
-const safeSetItem = (key: string, value: string) => {
-  try { localStorage.setItem(key, value); } catch { /* ignore */ }
-};
-
 interface ChatProviderProps {
   children: ReactNode;
 }
@@ -90,14 +82,8 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
   // Charger les messages depuis Supabase
   const fetchMessages = useCallback(async () => {
     if (!isSupabaseConfigured()) {
-      // Fallback localStorage
-      const saved = safeGetItem('chat_messages');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          setMessages(parsed.map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) })));
-        } catch { /* ignore */ }
-      }
+      setMessages([]);
+      setIsOnline(false);
       return;
     }
 
@@ -112,18 +98,10 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       const transformed = (data || []).map(transformMessage);
       setMessages(transformed);
       setIsOnline(true);
-      safeSetItem('chat_messages', JSON.stringify(transformed));
     } catch (e) {
       console.error('Erreur chargement messages:', e);
       setIsOnline(false);
-      // Fallback localStorage
-      const saved = safeGetItem('chat_messages');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          setMessages(parsed.map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) })));
-        } catch { /* ignore */ }
-      }
+      setMessages([]);
     }
   }, []);
 
@@ -146,9 +124,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
           setMessages(prev => {
             // Éviter les doublons
             if (prev.some(m => m.id === newMsg.id)) return prev;
-            const updated = [...prev, newMsg];
-            safeSetItem('chat_messages', JSON.stringify(updated));
-            return updated;
+            return [...prev, newMsg];
           });
         }
       )
@@ -189,69 +165,14 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       reply_to_sender: replyToSender || null,
     };
 
-    if (isSupabaseConfigured()) {
-      try {
-        const { data, error } = await supabase
-          .from('messages')
-          .insert(messageData)
-          .select()
-          .single();
+    if (!isSupabaseConfigured()) {
+      throw new Error('Base de donnees indisponible');
+    }
 
-        if (error) {
-          console.error('Erreur Supabase envoi message:', error);
-          throw error;
-        }
-
-        // Ajouter le message localement
-        const newMsg = transformMessage(data);
-        setMessages(prev => {
-          if (prev.some(m => m.id === newMsg.id)) return prev;
-          const updated = [...prev, newMsg];
-          safeSetItem('chat_messages', JSON.stringify(updated));
-          return updated;
-        });
-      } catch (e) {
-        console.error('Erreur envoi message Supabase:', e);
-        // Fallback: ajouter localement
-        const fallbackMsg: ChatMessage = {
-          id: `local_${Date.now()}`,
-          senderType: sender,
-          senderName: senderName || (sender === 'seller' ? 'Vendeur' : 'Client'),
-          tableNumber: tableNumber,
-          recipientType: recipientType,
-          recipientTableNumber: recipientTableNumber,
-          message: content.trim(),
-          timestamp: new Date(),
-          replyToId,
-          replyToMessage,
-          replyToSender,
-        };
-        setMessages(prev => {
-          const updated = [...prev, fallbackMsg];
-          safeSetItem('chat_messages', JSON.stringify(updated));
-          return updated;
-        });
-      }
-    } else {
-      // Mode hors ligne
-      const fallbackMsg: ChatMessage = {
-        id: `local_${Date.now()}`,
-        senderType: sender,
-        senderName: senderName || (sender === 'seller' ? 'Vendeur' : 'Client'),
-        tableNumber: tableNumber,
-        recipientType: recipientType,
-        recipientTableNumber: recipientTableNumber,
-        message: content.trim(),
-        timestamp: new Date(),
-        replyToId,
-        replyToMessage,
-        replyToSender,
-      };
-      setMessages(prev => {
-        const updated = [...prev, fallbackMsg];
-        safeSetItem('chat_messages', JSON.stringify(updated));
-        return updated;
-      });
+    const { error } = await supabase.from('messages').insert(messageData);
+    if (error) {
+      console.error('Erreur Supabase envoi message:', error);
+      throw error;
     }
   };
 

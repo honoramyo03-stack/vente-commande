@@ -22,6 +22,7 @@ interface CustomerContextType {
   logout: () => Promise<void>;
   isLoggedIn: boolean;
   isReady: boolean;
+  sessionRestored: boolean;
   updateActivity: () => void;
 }
 
@@ -39,26 +40,14 @@ interface CustomerProviderProps {
   children: ReactNode;
 }
 
-const SESSION_KEY = 'quickorder_customer_session';
 const HEARTBEAT_INTERVAL = 30000; // 30 secondes
-const CLEANUP_THRESHOLD = 2 * 60 * 60 * 1000; // 2 heures
-
-const safeGetItem = (key: string): string | null => {
-  try { return localStorage.getItem(key); } catch { return null; }
-};
-
-const safeSetItem = (key: string, value: string) => {
-  try { localStorage.setItem(key, value); } catch { /* ignore */ }
-};
-
-const safeRemoveItem = (key: string) => {
-  try { localStorage.removeItem(key); } catch { /* ignore */ }
-};
+const CUSTOMER_SESSION_KEY = 'customer_session';
 
 export const CustomerProvider: React.FC<CustomerProviderProps> = ({ children }) => {
   const [customer, setCustomer] = useState<CustomerSession | null>(null);
   const [connectedCustomers, setConnectedCustomers] = useState<ConnectedCustomer[]>([]);
   const [isReady, setIsReady] = useState(false);
+  const [sessionRestored, setSessionRestored] = useState(false);
   const customerRef = useRef<CustomerSession | null>(null);
   const heartbeatRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -67,36 +56,66 @@ export const CustomerProvider: React.FC<CustomerProviderProps> = ({ children }) 
     customerRef.current = customer;
   }, [customer]);
 
-  // ===== ENREGISTRER/METTRE À JOUR UN CLIENT DANS SUPABASE =====
-  const upsertClientInSupabase = useCallback(async (name: string, tableNumber: number) => {
+  // ===== RÉSERVER UNE TABLE (AVEC VERROUILLAGE MÉTIER) =====
+  const reserveTableInSupabase = useCallback(async (name: string, tableNumber: number) => {
     if (!isSupabaseConfigured()) return;
     try {
       const now = new Date().toISOString();
-      
-      // Essayer de mettre à jour d'abord
-      const { error: updateError } = await supabase
-        .from('connected_clients')
-        .update({
-          name,
-          connected_at: now,
-          last_seen: now,
-        })
-        .eq('table_number', tableNumber);
 
-      if (updateError) {
-        console.error('Erreur update client:', updateError);
-      }
-
-      // Vérifier si la mise à jour a fonctionné
-      const { data: checkData } = await supabase
+      const { data: rows, error: selectError } = await supabase
         .from('connected_clients')
         .select('*')
-        .eq('table_number', tableNumber)
-        .single();
+        .eq('table_number', tableNumber);
 
-      if (!checkData) {
-        // Insérer si pas trouvé
-        const { error: insertError } = await supabase
+      if (selectError) {
+        throw selectError;
+      }
+
+      const existing = (rows ?? []).reduce((latest: any, current: any) => {
+        if (!latest) return current;
+        const latestTs = new Date(latest.last_seen ?? latest.connected_at ?? 0).getTime();
+        const currentTs = new Date(current.last_seen ?? current.connected_at ?? 0).getTime();
+        return currentTs > latestTs ? current : latest;
+      }, null);
+
+      // Si des doublons existent (ancienne mauvaise config DB), on garde la plus recente.
+      if (rows && rows.length > 1) {
+        const duplicateIds = rows.slice(1).map((r: any) => r.id).filter(Boolean);
+        if (duplicateIds.length) {
+          await supabase.from('connected_clients').delete().in('id', duplicateIds);
+        }
+      }
+
+      // Table deja occupee par un autre client: blocage strict
+      if (existing && String(existing.name).toLowerCase() !== name.toLowerCase()) {
+        throw new Error('TABLE_OCCUPIED');
+      }
+
+      if (existing) {
+        let { error: updateError } = await supabase
+          .from('connected_clients')
+          .update({
+            name,
+            connected_at: now,
+            last_seen: now,
+          })
+          .eq('table_number', tableNumber);
+
+        // Compatibilite schema: certains environnements n'ont pas last_seen.
+        if (updateError && String(updateError.message).toLowerCase().includes('last_seen')) {
+          const retry = await supabase
+            .from('connected_clients')
+            .update({
+              name,
+              connected_at: now,
+            })
+            .eq('table_number', tableNumber);
+          updateError = retry.error;
+        }
+
+        if (updateError) throw updateError;
+      } else {
+        let { error: insertError } = await supabase
           .from('connected_clients')
           .insert({
             name,
@@ -104,12 +123,28 @@ export const CustomerProvider: React.FC<CustomerProviderProps> = ({ children }) 
             connected_at: now,
             last_seen: now,
           });
-        if (insertError) {
-          console.error('Erreur insert client:', insertError);
+
+        // Compatibilite schema: certains environnements n'ont pas last_seen.
+        if (insertError && String(insertError.message).toLowerCase().includes('last_seen')) {
+          const retry = await supabase
+            .from('connected_clients')
+            .insert({
+              name,
+              table_number: tableNumber,
+              connected_at: now,
+            });
+          insertError = retry.error;
         }
+
+        if (insertError) throw insertError;
       }
-    } catch (e) {
-      console.error('Erreur upsert client Supabase:', e);
+    } catch (e: any) {
+      console.error('Erreur reservation table Supabase:', e);
+      // Unique constraint sur table_number: traduire en erreur metier claire.
+      if (e?.code === '23505') {
+        throw new Error('TABLE_OCCUPIED');
+      }
+      throw e;
     }
   }, []);
 
@@ -119,17 +154,17 @@ export const CustomerProvider: React.FC<CustomerProviderProps> = ({ children }) 
     try {
       const { data, error } = await supabase
         .from('connected_clients')
-        .select('*')
-        .order('connected_at', { ascending: false });
+        .select('*');
 
       if (!error && data) {
-        const clients = data.map((c: any) => ({
+        const clients = data
+          .map((c: any) => ({
           id: c.id,
           name: c.name,
           tableNumber: c.table_number,
-          connectedAt: new Date(c.connected_at),
-          lastActive: new Date(c.last_seen),
-        }));
+          connectedAt: new Date(c.connected_at ?? new Date().toISOString()),
+          lastActive: new Date(c.last_seen ?? c.connected_at ?? new Date().toISOString()),
+          }));
         setConnectedCustomers(clients);
       }
     } catch (e) {
@@ -142,33 +177,32 @@ export const CustomerProvider: React.FC<CustomerProviderProps> = ({ children }) 
     let cancelled = false;
 
     const init = async () => {
-      // 1. Charger les clients connectés
-      await loadConnectedClients();
-
-      // 2. Restaurer la session sauvegardée dans localStorage
-      const savedStr = safeGetItem(SESSION_KEY);
-      if (savedStr) {
+      // 1. Restaurer la session locale (connexion persistante)
+      const stored = localStorage.getItem(CUSTOMER_SESSION_KEY);
+      if (stored) {
         try {
-          const savedSession = JSON.parse(savedStr);
-          if (savedSession && savedSession.name && savedSession.tableNumber) {
-            if (!cancelled) {
-              console.log('Restauration session:', savedSession.name, 'Table', savedSession.tableNumber);
-              
-              // Restaurer la session localement d'abord
-              setCustomer(savedSession);
-              
-              // Puis ré-enregistrer dans Supabase
-              await upsertClientInSupabase(savedSession.name, savedSession.tableNumber);
-              
-              // Recharger les clients
-              await loadConnectedClients();
+          const parsed = JSON.parse(stored) as CustomerSession;
+          if (parsed?.name && parsed?.tableNumber) {
+            try {
+              // Re-enregistrer la presence cote serveur si necessaire.
+              await reserveTableInSupabase(parsed.name, parsed.tableNumber);
+              setCustomer(parsed);
+              setSessionRestored(true);
+            } catch {
+              // Si la table a ete reprise par un autre client/proprietaire, vider la session locale.
+              localStorage.removeItem(CUSTOMER_SESSION_KEY);
+              setCustomer(null);
+              setSessionRestored(false);
             }
           }
-        } catch (e) {
-          console.error('Erreur restauration session:', e);
-          // Ne pas supprimer la session en cas d'erreur réseau
+        } catch {
+          localStorage.removeItem(CUSTOMER_SESSION_KEY);
+          setSessionRestored(false);
         }
       }
+
+      // 2. Charger les clients connectés
+      await loadConnectedClients();
 
       if (!cancelled) {
         setIsReady(true);
@@ -180,14 +214,7 @@ export const CustomerProvider: React.FC<CustomerProviderProps> = ({ children }) 
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  // ===== SAUVEGARDE AUTOMATIQUE DE LA SESSION =====
-  useEffect(() => {
-    if (customer) {
-      safeSetItem(SESSION_KEY, JSON.stringify(customer));
-    }
-  }, [customer]);
+  }, [loadConnectedClients, reserveTableInSupabase]);
 
   // ===== SOUSCRIPTION TEMPS RÉEL =====
   useEffect(() => {
@@ -206,6 +233,28 @@ export const CustomerProvider: React.FC<CustomerProviderProps> = ({ children }) 
 
     return () => {
       supabase.removeChannel(channel);
+    };
+  }, [isReady, loadConnectedClients]);
+
+  // Polling de secours multi-appareils (si Realtime est indisponible)
+  useEffect(() => {
+    if (!isSupabaseConfigured() || !isReady) return;
+
+    const interval = setInterval(() => {
+      loadConnectedClients();
+    }, 5000);
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        loadConnectedClients();
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [isReady, loadConnectedClients]);
 
@@ -238,32 +287,6 @@ export const CustomerProvider: React.FC<CustomerProviderProps> = ({ children }) 
       }
     };
   }, [customer]);
-
-  // ===== NETTOYAGE DES CLIENTS INACTIFS =====
-  useEffect(() => {
-    if (!isSupabaseConfigured()) return;
-
-    const cleanup = async () => {
-      const threshold = new Date(Date.now() - CLEANUP_THRESHOLD);
-      try {
-        await supabase
-          .from('connected_clients')
-          .delete()
-          .lt('last_seen', threshold.toISOString());
-      } catch (e) {
-        // Silencieux
-      }
-    };
-
-    // Nettoyer après 60 secondes (pas immédiatement)
-    const timeout = setTimeout(cleanup, 60000);
-    const interval = setInterval(cleanup, 5 * 60 * 1000);
-    
-    return () => {
-      clearTimeout(timeout);
-      clearInterval(interval);
-    };
-  }, []);
 
   // ===== ACTIVITÉ UTILISATEUR =====
   useEffect(() => {
@@ -309,16 +332,25 @@ export const CustomerProvider: React.FC<CustomerProviderProps> = ({ children }) 
       connectedAt: new Date().toISOString(),
     };
 
-    // Sauvegarder en localStorage immédiatement
-    safeSetItem(SESSION_KEY, JSON.stringify(session));
-    
-    // Mettre à jour l'état
+    // Reservation strictement serveur (pas de mode local).
+    if (!isSupabaseConfigured()) {
+      throw new Error('Base de donnees indisponible');
+    }
+
+    try {
+      await reserveTableInSupabase(name, tableNumber);
+    } catch (e: any) {
+      throw e;
+    }
+
+    // Session persistante locale pour garder la connexion apres refresh/fermeture.
     setCustomer(session);
-    
-    // Enregistrer dans Supabase
-    await upsertClientInSupabase(name, tableNumber);
+    setSessionRestored(false);
+    localStorage.setItem(CUSTOMER_SESSION_KEY, JSON.stringify(session));
+
+    // Recharger la liste connectee
     await loadConnectedClients();
-  }, [upsertClientInSupabase, loadConnectedClients]);
+  }, [reserveTableInSupabase, loadConnectedClients]);
 
   // ===== LOGOUT =====
   const logout = useCallback(async () => {
@@ -335,7 +367,8 @@ export const CustomerProvider: React.FC<CustomerProviderProps> = ({ children }) 
     }
 
     setCustomer(null);
-    safeRemoveItem(SESSION_KEY);
+    setSessionRestored(false);
+    localStorage.removeItem(CUSTOMER_SESSION_KEY);
     await loadConnectedClients();
   }, [loadConnectedClients]);
 
@@ -365,6 +398,7 @@ export const CustomerProvider: React.FC<CustomerProviderProps> = ({ children }) 
         logout,
         isLoggedIn: customer !== null,
         isReady,
+        sessionRestored,
         updateActivity,
       }}
     >
