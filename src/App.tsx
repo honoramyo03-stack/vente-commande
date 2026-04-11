@@ -13,40 +13,43 @@ import { ChatProvider } from './contexts/ChatContext';
 import { OrdersProvider } from './contexts/OrdersContext';
 import { CustomerProvider } from './contexts/CustomerContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 
 function App() {
   return (
     <Router>
       <CustomerProvider>
-        <NotificationProvider>
-          <OrdersProvider>
-            <CartProvider>
-              <ChatProvider>
-                <div className="min-h-screen bg-gray-50">
-                  <Routes>
-                    {/* Customer Routes */}
-                    <Route path="/" element={<CustomerLogin />} />
-                    <Route path="/menu" element={<CustomerHome />} />
-                    <Route path="/cart" element={<Cart />} />
-                    <Route path="/checkout" element={<Checkout />} />
-                    <Route path="/payment" element={<Payment />} />
+        <ThemeProvider>
+          <NotificationProvider>
+            <OrdersProvider>
+              <CartProvider>
+                <ChatProvider>
+                  <div id="customer-app" className="min-h-screen bg-gray-50">
+                    <Routes>
+                      {/* Customer Routes */}
+                      <Route path="/" element={<CustomerLogin />} />
+                      <Route path="/menu" element={<CustomerHome />} />
+                      <Route path="/cart" element={<Cart />} />
+                      <Route path="/checkout" element={<Checkout />} />
+                      <Route path="/payment" element={<Payment />} />
+                      
+                      {/* Seller Routes */}
+                      <Route path="/seller/login" element={<SellerLogin />} />
+                      <Route path="/seller/dashboard" element={<SellerDashboard />} />
+                      <Route path="/seller/orders/:orderId" element={<OrderDetails />} />
+                      
+                      {/* Redirect to home */}
+                      <Route path="*" element={<Navigate to="/" replace />} />
+                    </Routes>
                     
-                    {/* Seller Routes */}
-                    <Route path="/seller/login" element={<SellerLogin />} />
-                    <Route path="/seller/dashboard" element={<SellerDashboard />} />
-                    <Route path="/seller/orders/:orderId" element={<OrderDetails />} />
-                    
-                    {/* Redirect to home */}
-                    <Route path="*" element={<Navigate to="/" replace />} />
-                  </Routes>
-                  
-                  {/* Chat Widget - visible on customer pages */}
-                  <ChatWidget />
-                </div>
-              </ChatProvider>
-            </CartProvider>
-          </OrdersProvider>
-        </NotificationProvider>
+                    {/* Chat Widget - visible on customer pages */}
+                    <ChatWidget />
+                  </div>
+                </ChatProvider>
+              </CartProvider>
+            </OrdersProvider>
+          </NotificationProvider>
+        </ThemeProvider>
       </CustomerProvider>
     </Router>
   );

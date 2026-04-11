@@ -14,3 +14,185 @@
 .animate-slide-up {
   animation: slide-up 0.3s ease-out;
 }
+
+/* ========================================
+   THEME SOMBRE - Espace Client
+   ======================================== */
+
+/* Reset et base */
+.dark-theme {
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-card: #1e293b;
+  --bg-card-hover: #334155;
+  --bg-input: #334155;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --border-color: #334155;
+  --border-light: #1e293b;
+}
+
+.dark-theme .bg-gray-50,
+.dark-theme .bg-white {
+  background-color: var(--bg-primary) !important;
+}
+
+.dark-theme .bg-gray-100 {
+  background-color: var(--bg-secondary) !important;
+}
+
+/* Header sombre */
+.dark-theme header {
+  background: linear-gradient(to right, #312e81, #581c87, #9d174d) !important;
+}
+
+/* Cartes et conteneurs */
+.dark-theme .bg-white:not(header .bg-white):not(.bg-white\/15):not(.bg-white\/20):not(.bg-white\/30) {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+}
+
+.dark-theme .border-gray-100,
+.dark-theme .border-gray-200 {
+  border-color: var(--border-color) !important;
+}
+
+/* Textes */
+.dark-theme .text-gray-500 {
+  color: var(--text-secondary) !important;
+}
+
+.dark-theme .text-gray-700 {
+  color: var(--text-primary) !important;
+}
+
+.dark-theme .text-gray-800 {
+  color: var(--text-primary) !important;
+}
+
+.dark-theme .text-gray-900 {
+  color: var(--text-primary) !important;
+}
+
+.dark-theme .text-gray-400 {
+  color: var(--text-muted) !important;
+}
+
+.dark-theme .text-gray-600 {
+  color: var(--text-secondary) !important;
+}
+
+/* Inputs */
+.dark-theme input,
+.dark-theme select,
+.dark-theme textarea {
+  background-color: var(--bg-input) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+.dark-theme input::placeholder,
+.dark-theme textarea::placeholder {
+  color: var(--text-muted) !important;
+}
+
+/* Bannière welcome */
+.dark-theme .bg-gradient-to-r.from-indigo-50 {
+  background: linear-gradient(to right, #1e1b4b, #312e81) !important;
+}
+
+.dark-theme .from-indigo-50 .text-indigo-800 {
+  color: #c7d2fe !important;
+}
+
+.dark-theme .from-indigo-50 .text-indigo-600 {
+  color: #a5b4fc !important;
+}
+
+.dark-theme .from-indigo-50.border-indigo-100 {
+  border-color: #312e81 !important;
+}
+
+/* Boutons catégories */
+.dark-theme .bg-gray-100.text-gray-700 {
+  background-color: var(--bg-input) !important;
+  color: var(--text-secondary) !important;
+}
+
+.dark-theme .bg-gray-100.text-gray-700:hover {
+  background-color: var(--bg-card-hover) !important;
+}
+
+/* Product cards */
+.dark-theme .border-gray-200 {
+  border-color: var(--border-color) !important;
+}
+
+/* Barre bleue sous-total */
+.dark-theme .bg-blue-50 {
+  background-color: #172554 !important;
+}
+
+.dark-theme .bg-blue-50 .text-blue-700 {
+  color: #93c5fd !important;
+}
+
+.dark-theme .bg-blue-50 .text-blue-800 {
+  color: #bfdbfe !important;
+}
+
+/* Panier */
+.dark-theme .bg-orange-50 {
+  background-color: #431407 !important;
+}
+
+/* Chat */
+.dark-theme .chat-widget {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+}
+
+.dark-theme .chat-messages {
+  background-color: var(--bg-primary) !important;
+}
+
+/* Notifications */
+.dark-theme .notification-toast {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Scrollbar sombre */
+.dark-theme ::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dark-theme ::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+.dark-theme ::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+/* Stock badge */
+.dark-theme .bg-green-50 {
+  background-color: #052e16 !important;
+}
+
+.dark-theme .bg-green-50 .text-green-700 {
+  color: #86efac !important;
+}
+
+/* Order status cards */
+.dark-theme .bg-yellow-50 {
+  background-color: #422006 !important;
+}
+.dark-theme .bg-green-50 {
+  background-color: #052e16 !important;
+}
+.dark-theme .bg-blue-50 {
+  background-color: #172554 !important;
+}

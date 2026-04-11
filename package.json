@@ -18,6 +18,7 @@
     "react-dom": "^18.3.1",
     "react-hot-toast": "^2.6.0",
     "react-router-dom": "^7.1.1",
+    "recharts": "^3.8.1",
     "vite-plugin-singlefile": "^2.3.2",
     "xlsx": "^0.18.5",
     "zustand": "^5.0.2"

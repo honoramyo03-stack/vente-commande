@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Minus, Package, ImageOff, Check, ShoppingCart } from 'lucide-react';
+import { Plus, Minus, Package, ImageOff, Check, ShoppingCart, X, ZoomIn } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { Product } from '../contexts/OrdersContext';
 import { useNotification } from '../contexts/NotificationContext';
@@ -15,6 +15,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'list' })
   const [imageError, setImageError] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [animateSubtotal, setAnimateSubtotal] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
   const prevQuantityRef = useRef(0);
 
   const formatPrice = (price: number) => {
@@ -108,14 +109,19 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'list' })
         }`}
       >
         {/* Image */}
-        <div className="relative w-full aspect-square bg-gradient-to-br from-gray-100 to-gray-200">
+        <div className="relative w-full aspect-square bg-gradient-to-br from-gray-100 to-gray-200 cursor-pointer group/img" onClick={() => product.image && !imageError && setShowImageModal(true)}>
           {!imageError && product.image ? (
-            <img
-              src={product.image}
-              alt={product.name}
-              className="w-full h-full object-cover"
-              onError={() => setImageError(true)}
-            />
+            <>
+              <img
+                src={product.image}
+                alt={product.name}
+                className="w-full h-full object-cover transition-transform group-hover/img:scale-105"
+                onError={() => setImageError(true)}
+              />
+              <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/20 transition-all flex items-center justify-center opacity-0 group-hover/img:opacity-100">
+                <ZoomIn size={28} className="text-white drop-shadow-lg" />
+              </div>
+            </>
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-100">
               <ImageOff size={32} className="text-indigo-300" />
@@ -123,14 +129,14 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'list' })
           )}
 
           <div className="absolute top-2 left-2">
-            <span className={`${categoryColor} text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm`}>
+            <span className={`${categoryColor} text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full shadow-sm`}>
               {product.category}
             </span>
           </div>
 
           {product.quantity !== undefined && (
             <div
-              className={`absolute top-2 right-2 text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5 shadow-sm ${
+              className={`absolute top-2 right-2 text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5 shadow-sm ${
                 isOutOfStock
                   ? 'bg-red-500 text-white'
                   : isLowStock
@@ -144,14 +150,14 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'list' })
           )}
 
           {isInCart && (
-            <div className="absolute bottom-2 right-2 bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow">
+            <div className="absolute bottom-2 right-2 bg-indigo-600 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow">
               🛒 ×{cartQuantity}
             </div>
           )}
 
           {isOutOfStock && (
             <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-              <span className="text-xs text-white font-bold bg-red-600 px-3 py-1 rounded">
+              <span className="text-sm text-white font-bold bg-red-600 px-3 py-1 rounded">
                 ÉPUISÉ
               </span>
             </div>
@@ -159,23 +165,23 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'list' })
         </div>
 
         {/* Infos */}
-        <div className="p-2.5 sm:p-3 flex flex-col flex-1 justify-between gap-1.5 sm:gap-2">
+        <div className="p-3 sm:p-4 flex flex-col flex-1 justify-between gap-2">
           <div>
-            <h3 className="font-bold text-gray-900 text-xs sm:text-sm leading-tight line-clamp-1">
+            <h3 className="font-bold text-gray-900 text-sm sm:text-base leading-tight line-clamp-1">
               {product.name}
             </h3>
-            <p className="text-[10px] sm:text-xs text-gray-400 line-clamp-1 mt-0.5">
+            <p className="text-xs sm:text-sm text-gray-400 line-clamp-1 mt-0.5">
               {product.description}
             </p>
           </div>
 
           <div className="flex items-center justify-between gap-1">
             <div className="flex flex-col">
-              <span className="font-extrabold text-indigo-600 text-xs sm:text-sm">
+              <span className="font-extrabold text-indigo-600 text-sm sm:text-base">
                 {formatPrice(product.price)}
               </span>
               {isInCart && (
-                <span className={`text-[8px] sm:text-[10px] text-indigo-400 font-semibold ${animateSubtotal ? 'animate-pulse' : ''}`}>
+                <span className={`text-[10px] sm:text-xs text-indigo-400 font-semibold ${animateSubtotal ? 'animate-pulse' : ''}`}>
                   Total: {formatPrice(subtotal)}
                 </span>
               )}
@@ -185,41 +191,41 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'list' })
               <button
                 onClick={handleAddToCart}
                 disabled={isAdding || reachedStockLimit}
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg font-semibold text-[10px] sm:text-xs transition-all ${
+                className={`flex items-center gap-1 px-3 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-all ${
                   isAdding
                     ? 'bg-green-500 text-white'
                     : 'bg-indigo-600 text-white active:bg-indigo-700 hover:bg-indigo-700'
                 }`}
               >
                 {isAdding ? (
-                  <><Check size={12} className="animate-bounce" /><span>OK!</span></>
+                  <><Check size={14} className="animate-bounce" /><span>OK!</span></>
                 ) : (
-                  <><Plus size={12} /><span>Ajouter</span></>
+                  <><Plus size={14} /><span>Ajouter</span></>
                 )}
               </button>
             )}
 
             {isInCart && !isOutOfStock && (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={handleDecrease}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-red-100 text-red-600 active:bg-red-200"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-100 text-red-600 active:bg-red-200"
                 >
-                  <Minus size={12} />
+                  <Minus size={14} />
                 </button>
-                <span className="text-xs font-extrabold text-indigo-700 min-w-[20px] text-center">
+                <span className="text-sm font-extrabold text-indigo-700 min-w-[24px] text-center">
                   {cartQuantity}
                 </span>
                 <button
                   onClick={handleIncrease}
                   disabled={reachedStockLimit}
-                  className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${
+                  className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
                     reachedStockLimit
                       ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                       : 'bg-green-100 text-green-600 active:bg-green-200'
                   }`}
                 >
-                  <Plus size={12} />
+                  <Plus size={14} />
                 </button>
               </div>
             )}
@@ -243,23 +249,28 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'list' })
       {/* Ligne principale : image + infos */}
       <div className="flex items-stretch">
         {/* Image */}
-        <div className="relative w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 flex-shrink-0 overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200">
+        <div className="relative w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 flex-shrink-0 overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 cursor-pointer" onClick={() => product.image && !imageError && setShowImageModal(true)}>
           {!imageError && product.image ? (
-            <img
-              src={product.image}
-              alt={product.name}
-              className="w-full h-full object-cover"
-              onError={() => setImageError(true)}
-            />
+            <>
+              <img
+                src={product.image}
+                alt={product.name}
+                className="w-full h-full object-cover hover:scale-110 transition-transform"
+                onError={() => setImageError(true)}
+              />
+              <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-all flex items-center justify-center">
+                <ZoomIn size={20} className="text-white drop-shadow opacity-0 hover:opacity-100 transition-opacity" />
+              </div>
+            </>
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-100">
-              <ImageOff size={18} className="text-indigo-300" />
+              <ImageOff size={22} className="text-indigo-300" />
             </div>
           )}
 
           {product.quantity !== undefined && (
             <div
-              className={`absolute top-0 right-0 text-[7px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded-bl-lg flex items-center gap-0.5 ${
+              className={`absolute top-0 right-0 text-[9px] sm:text-[11px] font-bold px-2 py-0.5 rounded-bl-lg flex items-center gap-0.5 ${
                 isOutOfStock
                   ? 'bg-red-500 text-white'
                   : isLowStock
@@ -267,7 +278,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'list' })
                     : 'bg-green-500 text-white'
               }`}
             >
-              <Package size={8} className="hidden sm:inline" />
+              <Package size={10} className="hidden sm:inline" />
               {product.quantity}
             </div>
           )}
@@ -275,8 +286,8 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'list' })
           {/* Badge panier sur l'image */}
           {isInCart && (
             <div className="absolute bottom-0 left-0 right-0 bg-indigo-600 text-white text-center">
-              <span className="text-[8px] sm:text-[10px] font-bold flex items-center justify-center gap-0.5 py-0.5">
-                <ShoppingCart size={9} />
+              <span className="text-[10px] sm:text-xs font-bold flex items-center justify-center gap-0.5 py-0.5">
+                <ShoppingCart size={10} />
                 ×{cartQuantity}
               </span>
             </div>
@@ -284,7 +295,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'list' })
 
           {isOutOfStock && (
             <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-              <span className="text-[7px] sm:text-[9px] text-white font-bold bg-red-600 px-2 py-1 rounded">
+              <span className="text-[10px] sm:text-xs text-white font-bold bg-red-600 px-2 py-1 rounded">
                 ÉPUISÉ
               </span>
             </div>
@@ -292,27 +303,27 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'list' })
         </div>
 
         {/* Infos produit */}
-        <div className="flex-1 min-w-0 p-2 sm:p-3 flex flex-col justify-between">
+        <div className="flex-1 min-w-0 p-3 sm:p-4 flex flex-col justify-between">
           <div>
-            <div className="flex items-center gap-1 sm:gap-2">
-              <h3 className="font-bold text-gray-900 text-[11px] sm:text-sm md:text-base leading-tight truncate flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-gray-900 text-sm sm:text-base md:text-lg leading-tight truncate flex-1">
                 {product.name}
               </h3>
               <span
-                className={`${categoryColor} text-[7px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0`}
+                className={`${categoryColor} text-[9px] sm:text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0`}
               >
                 {product.category}
               </span>
             </div>
 
-            <p className="text-[9px] sm:text-xs md:text-sm text-gray-400 truncate mt-0.5">
+            <p className="text-xs sm:text-sm md:text-base text-gray-400 truncate mt-0.5">
               {product.description}
             </p>
           </div>
 
           {/* Prix + Bouton ajouter (si pas dans le panier) */}
-          <div className="flex items-center justify-between mt-1.5 sm:mt-2">
-            <span className="font-extrabold text-indigo-600 text-[12px] sm:text-sm md:text-base">
+          <div className="flex items-center justify-between mt-2 sm:mt-3">
+            <span className="font-extrabold text-indigo-600 text-sm sm:text-base md:text-lg">
               {formatPrice(product.price)}
             </span>
 
@@ -320,16 +331,16 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'list' })
               <button
                 onClick={handleAddToCart}
                 disabled={isAdding || reachedStockLimit}
-                className={`flex items-center gap-1 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg font-semibold text-[10px] sm:text-xs transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg font-semibold text-xs sm:text-sm transition-all ${
                   isAdding
                     ? 'bg-green-500 text-white'
                     : 'bg-indigo-600 text-white active:bg-indigo-700 hover:bg-indigo-700'
                 }`}
               >
                 {isAdding ? (
-                  <><Check size={12} className="animate-bounce" /><span>OK!</span></>
+                  <><Check size={14} className="animate-bounce" /><span>OK!</span></>
                 ) : (
-                  <><Plus size={12} /><span>Ajouter</span></>
+                  <><Plus size={14} /><span>Ajouter</span></>
                 )}
               </button>
             )}
@@ -339,36 +350,36 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'list' })
 
       {/* Barre sous-total + contrôles (visible uniquement si dans le panier) */}
       {isInCart && !isOutOfStock && (
-        <div className={`border-t border-indigo-100 bg-indigo-50/50 px-3 py-2 sm:px-4 sm:py-2.5 transition-all ${animateSubtotal ? 'bg-indigo-100/70' : ''}`}>
+        <div className={`border-t border-indigo-100 bg-indigo-50/50 px-3 py-2.5 sm:px-4 sm:py-3 transition-all ${animateSubtotal ? 'bg-indigo-100/70' : ''}`}>
           <div className="flex items-center justify-between gap-2">
             {/* Contrôles quantité */}
-            <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="flex items-center gap-2 sm:gap-3">
               <button
                 onClick={handleDecrease}
-                className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg bg-red-100 text-red-600 active:bg-red-200 hover:bg-red-200 transition-colors"
+                className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg bg-red-100 text-red-600 active:bg-red-200 hover:bg-red-200 transition-colors"
               >
-                <Minus size={13} />
+                <Minus size={14} />
               </button>
-              <span className="text-[13px] sm:text-base font-extrabold text-indigo-700 min-w-[24px] text-center">
+              <span className="text-base sm:text-lg font-extrabold text-indigo-700 min-w-[28px] text-center">
                 {cartQuantity}
               </span>
               <button
                 onClick={handleIncrease}
                 disabled={reachedStockLimit}
-                className={`w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg transition-colors ${
+                className={`w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-colors ${
                   reachedStockLimit
                     ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                     : 'bg-green-100 text-green-600 active:bg-green-200 hover:bg-green-200'
                 }`}
               >
-                <Plus size={13} />
+                <Plus size={14} />
               </button>
             </div>
 
             {/* Sous-total */}
-            <div className={`flex items-center gap-1.5 transition-all ${animateSubtotal ? 'scale-105' : ''}`}>
-              <span className="text-[9px] sm:text-[11px] text-gray-500">Sous-total:</span>
-              <span className={`font-extrabold text-[13px] sm:text-base ${animateSubtotal ? 'text-green-600' : 'text-indigo-700'}`}>
+            <div className={`flex items-center gap-2 transition-all ${animateSubtotal ? 'scale-105' : ''}`}>
+              <span className="text-xs sm:text-sm text-gray-500">Sous-total:</span>
+              <span className={`font-extrabold text-base sm:text-lg ${animateSubtotal ? 'text-green-600' : 'text-indigo-700'}`}>
                 {formatPrice(subtotal)}
               </span>
             </div>
@@ -376,10 +387,27 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'list' })
 
           {/* Détail du calcul (visible si quantité > 1) */}
           {cartQuantity > 1 && (
-            <p className="text-[8px] sm:text-[10px] text-gray-400 mt-1 text-right">
+            <p className="text-[10px] sm:text-xs text-gray-400 mt-1 text-right">
               {cartQuantity} × {formatPrice(product.price)} = {formatPrice(subtotal)}
             </p>
           )}
+        </div>
+      )}
+
+      {/* Image Zoom Modal */}
+      {showImageModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={() => setShowImageModal(false)}>
+          <div className="relative max-w-lg w-full mx-4" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowImageModal(false)} className="absolute -top-3 -right-3 z-10 bg-white rounded-full p-2 shadow-lg hover:bg-gray-100">
+              <X size={20} />
+            </button>
+            <img src={product.image} alt={product.name} className="w-full rounded-2xl shadow-2xl object-contain max-h-[80vh]" />
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent rounded-b-2xl p-4">
+              <h3 className="text-white font-bold text-lg">{product.name}</h3>
+              <p className="text-white/80 text-sm">{product.description}</p>
+              <p className="text-white font-bold text-lg mt-1">{formatPrice(product.price)}</p>
+            </div>
+          </div>
         </div>
       )}
     </div>
