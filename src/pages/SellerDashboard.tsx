@@ -557,7 +557,7 @@ const SellerDashboard: React.FC = () => {
         {/* ========== STATS TAB ========== */}
         {activeTab === 'stats' && (
           <div className="space-y-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Best Sellers */}
             <div className={`${cardBg} border rounded-2xl p-5 shadow-sm`}>
               <h3 className="text-lg font-bold flex items-center gap-2 mb-4"><Award size={20} className="text-yellow-500" /> 🏆 Best-Sellers</h3>
