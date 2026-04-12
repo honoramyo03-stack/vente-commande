@@ -86,7 +86,7 @@ const CustomerHome: React.FC = () => {
 
       {/* Categories + Toggle vue */}
       <div className="sticky top-[56px] bg-white z-20 border-b border-gray-100 shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
+        <div className="max-w-[1400px] mx-auto px-4 py-3 flex items-center gap-3">
           {/* Catégories scrollables */}
           <div className="flex gap-2 overflow-x-auto flex-1 scrollbar-hide">
             {categories.map((cat) => (
@@ -133,7 +133,7 @@ const CustomerHome: React.FC = () => {
       </div>
 
       {/* Banner / Info */}
-      <div className="max-w-4xl mx-auto px-4 mt-5 sm:mt-6">
+      <div className="max-w-[1400px] mx-auto px-4 mt-5 sm:mt-6">
         <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100 rounded-xl p-4 sm:p-5 mb-5 sm:mb-6">
           <h2 className="font-semibold text-indigo-800 text-base sm:text-lg mb-1">
             👋 Bienvenue {customer?.name} !
@@ -167,15 +167,15 @@ const CustomerHome: React.FC = () => {
 
         {/* Produits */}
         {viewMode === 'list' ? (
-          // Vue en liste
-          <div className="flex flex-col gap-3 sm:gap-4">
+          // Vue en liste: 3 colonnes sur grand ecran
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
             {filteredProducts.map((product) => (
               <ProductCard key={product.id} product={product} viewMode="list" />
             ))}
           </div>
         ) : (
-          // Vue en grille (colonnes)
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
+          // Vue en grille: 5 colonnes sur grand ecran
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
             {filteredProducts.map((product) => (
               <ProductCard key={product.id} product={product} viewMode="grid" />
             ))}

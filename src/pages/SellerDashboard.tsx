@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Package, PlusCircle, CreditCard, UserPlus, Save, X, Edit2, Trash2, FileText, Download, Search, Wallet, User, Settings, BarChart3, Clock, TrendingUp, Award, Sun, Moon, Printer, Upload, Eye, Tag, ChevronRight, CheckCircle, AlertCircle, DollarSign, ShoppingBag, Users, Zap } from 'lucide-react';
+import { Package, PlusCircle, CreditCard, UserPlus, Save, X, Edit2, Trash2, FileText, Download, Search, Wallet, User, Settings, BarChart3, Clock, TrendingUp, Award, Sun, Moon, Printer, Upload, Eye, Tag, ChevronRight, CheckCircle, AlertCircle, DollarSign, ShoppingBag, Users, Zap, CalendarDays } from 'lucide-react';
 import { useOrders, OrderStatus, Order } from '../contexts/OrdersContext';
 import { useCustomer } from '../contexts/CustomerContext';
 import SellerHeader from '../components/SellerHeader';
@@ -58,11 +58,19 @@ type ReportHistoryItem = {
   fileName: string;
 };
 
+type AutoReportSchedule = {
+  enabled: boolean;
+  date?: string;
+  time: string;
+};
+
+const reportPeriods = ['journalier', 'hebdomadaire', 'mensuel', 'trimestriel'] as const;
+
 const SellerDashboard: React.FC = () => {
   const navigate = useNavigate();
   const {
     orders, updateOrderStatus, products, addProduct, updateProduct, deleteProduct,
-    paymentNumbers, updatePaymentNumber, sellerAccounts, addSellerAccount, deleteSellerAccount,
+    paymentNumbers, updatePaymentNumber, sellerAccounts, addSellerAccount, updateSellerAccount, deleteSellerAccount,
     categories, addCategory, updateCategory, deleteCategory,
     restaurantSettings, updateRestaurantSettings,
   } = useOrders();
@@ -81,17 +89,12 @@ const SellerDashboard: React.FC = () => {
   const [showProductModal, setShowProductModal] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showMyAccountModal, setShowMyAccountModal] = useState(false);
   const [showClientHistory, setShowClientHistory] = useState(false);
   const [selectedClient, setSelectedClient] = useState<{ name: string; table: number } | null>(null);
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [editingCategory, setEditingCategory] = useState<any>(null);
   const [editingPayment, setEditingPayment] = useState<string | null>(null);
-  const [autoDailyHour, setAutoDailyHour] = useState(() => {
-    try { return localStorage.getItem('auto_daily_report_hour') || '22:00'; } catch { return '22:00'; }
-  });
-  const [autoDailyEnabled, setAutoDailyEnabled] = useState(() => {
-    try { return localStorage.getItem('auto_daily_report_enabled') !== 'false'; } catch { return true; }
-  });
   const [reportHistory, setReportHistory] = useState<ReportHistoryItem[]>(() => {
     try {
       const raw = localStorage.getItem('seller_report_history');
@@ -113,10 +116,29 @@ const SellerDashboard: React.FC = () => {
   // Form - Account
   const [aUsername, setAUsername] = useState('');
   const [aPassword, setAPassword] = useState('');
+  const [myUsername, setMyUsername] = useState('');
+  const [myPassword, setMyPassword] = useState('');
 
   // Form - Category
   const [catName, setCatName] = useState('');
   const [catIcon, setCatIcon] = useState('');
+  const sellerUsername = localStorage.getItem('sellerUsername') || '';
+  const myAccount = sellerAccounts.find(a => a.username === sellerUsername);
+
+  const [reportSchedules, setReportSchedules] = useState<Record<string, AutoReportSchedule>>(() => {
+    try {
+      const raw = localStorage.getItem('auto_report_schedules');
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    const today = new Date().toISOString().slice(0, 10);
+    return {
+      // Journalier: déclenchement quotidien à une heure donnée (sans date)
+      journalier: { enabled: false, time: '22:00' },
+      hebdomadaire: { enabled: false, date: today, time: '22:00' },
+      mensuel: { enabled: false, date: today, time: '22:00' },
+      trimestriel: { enabled: false, date: today, time: '22:00' },
+    };
+  });
 
   useEffect(() => {
     try { localStorage.setItem('seller_dark_mode', darkMode ? 'true' : 'false'); } catch {}
@@ -177,10 +199,9 @@ const SellerDashboard: React.FC = () => {
 
   useEffect(() => {
     try {
-      localStorage.setItem('auto_daily_report_hour', autoDailyHour);
-      localStorage.setItem('auto_daily_report_enabled', autoDailyEnabled ? 'true' : 'false');
+      localStorage.setItem('auto_report_schedules', JSON.stringify(reportSchedules));
     } catch {}
-  }, [autoDailyHour, autoDailyEnabled]);
+  }, [reportSchedules]);
 
   useEffect(() => {
     try {
@@ -200,37 +221,49 @@ const SellerDashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!autoDailyEnabled) return;
     const timer = setInterval(async () => {
       const now = new Date();
-      const hm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-      if (hm !== autoDailyHour) return;
-      const today = now.toISOString().slice(0, 10);
-      const key = `auto_daily_report_last_run_${today}`;
-      if (localStorage.getItem(key) === 'done') return;
-      let pdfDone = false;
-      let excelDone = false;
-      try {
-        await exportPDF('journalier', true);
-        pdfDone = true;
-      } catch (error) {
-        console.error('Auto PDF failed', error);
-      }
-      try {
-        await exportExcel('journalier', true);
-        excelDone = true;
-      } catch (error) {
-        console.error('Auto Excel failed', error);
-      }
-      if (pdfDone || excelDone) {
-        localStorage.setItem(key, 'done');
-        notify(`Rapport auto ${pdfDone ? 'PDF' : ''}${pdfDone && excelDone ? ' + ' : ''}${excelDone ? 'Excel' : ''} généré (${autoDailyHour})`, 'success');
-      } else {
-        notify('Échec du rapport automatique', 'error');
+      const todayStr = now.toISOString().slice(0, 10);
+
+      for (const period of reportPeriods) {
+        const schedule = reportSchedules[period];
+        if (!schedule?.enabled || !schedule.time) continue;
+
+        const targetDate = period === 'journalier' ? todayStr : schedule.date;
+        if (!targetDate) continue;
+
+        const target = new Date(`${targetDate}T${schedule.time}:00`);
+        if (Number.isNaN(target.getTime()) || now < target) continue;
+
+        const runKey = `auto_report_run_${period}_${targetDate}_${schedule.time}`;
+        if (localStorage.getItem(runKey) === 'done') continue;
+
+        let pdfDone = false;
+        let excelDone = false;
+        try {
+          await exportPDF(period, true);
+          pdfDone = true;
+        } catch (error) {
+          console.error(`Auto PDF failed (${period})`, error);
+        }
+        try {
+          await exportExcel(period, true);
+          excelDone = true;
+        } catch (error) {
+          console.error(`Auto Excel failed (${period})`, error);
+        }
+
+        if (pdfDone || excelDone) {
+          localStorage.setItem(runKey, 'done');
+          notify(`Rapport auto ${period} ${pdfDone ? 'PDF' : ''}${pdfDone && excelDone ? ' + ' : ''}${excelDone ? 'Excel' : ''} généré`, 'success');
+        } else {
+          notify(`Échec du rapport automatique (${period})`, 'error');
+        }
       }
     }, 30000);
+
     return () => clearInterval(timer);
-  }, [autoDailyEnabled, autoDailyHour]);
+  }, [reportSchedules, notify]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -545,11 +578,13 @@ const SellerDashboard: React.FC = () => {
                   className={`w-full text-sm pl-11 pr-4 py-3 rounded-xl border ${cardBg}`} />
               </div>
             </div>
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {filteredOrders.map(order => {
                 const nextStatus: Record<string, string> = { pending: 'Payé', paid: 'Préparer', preparing: 'Prêt', ready: 'Terminer' };
                 const canValidate = !!nextStatus[order.status];
                 const isLocked = order.status === 'completed' || order.status === 'cancelled';
+                const compactItems = order.items?.slice(0, 2) || [];
+                const hiddenCount = (order.items?.length || 0) - compactItems.length;
                 return (
                   <div key={order.id} className={`${cardBg} border rounded-2xl p-4 shadow-sm ${isLocked ? 'opacity-85' : ''}`}>
                     {/* Header */}
@@ -579,11 +614,19 @@ const SellerDashboard: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Items summary */}
-                    <div className={`text-sm ${textSec} mb-3`}>
-                      {order.items?.map((i: any, idx: number) => (
-                        <span key={idx}>{i.product?.name || i.name} ×{i.quantity}{idx < order.items.length - 1 ? ', ' : ''}</span>
-                      ))}
+                    {/* Items summary (compact) */}
+                    <div className={`text-sm ${textSec} mb-3 space-y-1`}>
+                      {compactItems.map((i: any, idx: number) => {
+                        const itemName = i.product?.name || i.name;
+                        const itemPrep = i.product?.estimatedMinutes || products.find(p => p.id === i.product?.id || p.name === itemName)?.estimatedMinutes;
+                        return (
+                          <p key={idx} className="truncate">
+                            {itemName} ×{i.quantity}
+                            {itemPrep ? <span className="ml-2 text-indigo-600 font-medium">⏱ {itemPrep} min</span> : null}
+                          </p>
+                        );
+                      })}
+                      {hiddenCount > 0 ? <p className="text-xs font-semibold text-indigo-600">+{hiddenCount} article(s)</p> : null}
                     </div>
 
                     {/* Status + Price + Validate */}
@@ -595,16 +638,9 @@ const SellerDashboard: React.FC = () => {
                         </span>
                         <span className="text-lg font-bold">{formatPrice(order.total)}</span>
                       </div>
-                      <select
-                        value={order.status}
-                        disabled={isLocked}
-                        onChange={e => updateOrderStatus(order.id, e.target.value as OrderStatus)}
-                        className={`text-sm px-3 py-2 rounded-xl border bg-gray-50 font-medium ${isLocked ? 'cursor-not-allowed opacity-60' : ''}`}
-                      >
-                        <option value="pending">En attente</option><option value="paid">Payé</option>
-                        <option value="preparing">En préparation</option><option value="ready">Prêt</option>
-                        <option value="completed">Terminé</option><option value="cancelled">Annulé</option>
-                      </select>
+                      <div className="text-xs px-3 py-2 rounded-xl border bg-gray-50 text-gray-600 font-semibold">
+                        Statut fixe
+                      </div>
                     </div>
 
                     {/* Validate button */}
@@ -647,7 +683,7 @@ const SellerDashboard: React.FC = () => {
                   className={`w-full text-sm pl-11 pr-4 py-3 rounded-xl border ${cardBg}`} />
               </div>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
               {products.filter(p => !productFilter || p.name.toLowerCase().includes(productFilter.toLowerCase())).map(p => (
                 <div key={p.id} className={`${cardBg} border rounded-2xl p-4 shadow-sm`}>
                   <div className="flex items-center gap-4">
@@ -692,7 +728,7 @@ const SellerDashboard: React.FC = () => {
               className="flex items-center gap-2 px-4 py-3 bg-indigo-600 text-white rounded-xl text-sm font-bold mb-4 shadow-sm">
               <PlusCircle size={18} /> Nouvelle Catégorie
             </button>
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
               {[...categories].sort((a, b) => a.order - b.order).map(c => (
                 <div key={c.id} className={`${cardBg} border rounded-2xl p-4 flex items-center justify-between shadow-sm`}>
                   <div className="flex items-center gap-3 min-w-0">
@@ -806,7 +842,7 @@ const SellerDashboard: React.FC = () => {
             </div>
 
             {/* Category Distribution */}
-            <div className={`${cardBg} border rounded-2xl p-5 shadow-sm`}>
+            <div className={`${cardBg} border rounded-2xl p-5 shadow-sm max-w-3xl mx-auto`}>
               <h3 className="text-lg font-bold flex items-center gap-2 mb-4"><BarChart3 size={20} className="text-purple-500" /> 📊 Par catégorie</h3>
               {categoryData.length > 0 ? (
                 <div className="space-y-3">
@@ -814,10 +850,10 @@ const SellerDashboard: React.FC = () => {
                     const total = categoryData.reduce((s, x) => s + x.value, 0);
                     const pct = total > 0 ? ((c.value / total) * 100).toFixed(0) : 0;
                     return (
-                      <div key={i} className="flex items-center gap-3">
+                      <div key={i} className="flex items-center gap-3 justify-center">
                         <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
-                        <span className="text-sm flex-1 font-medium">{c.name}</span>
-                        <div className="w-28 bg-gray-200 rounded-full h-3">
+                        <span className="text-sm w-36 font-medium text-center">{c.name}</span>
+                        <div className="w-24 bg-gray-200 rounded-full h-3">
                           <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
                         </div>
                         <span className="text-sm font-bold w-12 text-right">{pct}%</span>
@@ -835,7 +871,7 @@ const SellerDashboard: React.FC = () => {
 
         {/* ========== PAYMENTS TAB ========== */}
         {activeTab === 'payments' && (
-          <div className="flex gap-4 overflow-x-auto no-scrollbar pb-1">
+          <div className="flex flex-nowrap gap-4 overflow-x-auto no-scrollbar pb-1">
             {Object.entries(paymentNumbers).map(([key, info]) => {
               const provider = key === 'orange_money' ? 'Orange Money' : key === 'mvola' ? 'Mvola' : 'Airtel Money';
               const color = key === 'orange_money' ? 'from-orange-500 to-orange-400' : key === 'mvola' ? 'from-red-600 to-red-500' : 'from-red-500 to-red-400';
@@ -879,11 +915,25 @@ const SellerDashboard: React.FC = () => {
         {/* ========== ACCOUNTS TAB ========== */}
         {activeTab === 'accounts' && (
           <div>
-            <button onClick={() => setShowAccountModal(true)}
-              className="flex items-center gap-2 px-4 py-3 bg-indigo-600 text-white rounded-xl text-sm font-bold mb-4 shadow-sm">
-              <UserPlus size={18} /> Nouveau Compte
-            </button>
-            <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              <button onClick={() => setShowAccountModal(true)}
+                className="flex items-center gap-2 px-4 py-3 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-sm">
+                <UserPlus size={18} /> Nouveau Compte
+              </button>
+              {myAccount ? (
+                <button
+                  onClick={() => {
+                    setMyUsername(myAccount.username);
+                    setMyPassword('');
+                    setShowMyAccountModal(true);
+                  }}
+                  className="flex items-center gap-2 px-4 py-3 bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-sm"
+                >
+                  <Edit2 size={16} /> Modifier mon compte ({myAccount.username})
+                </button>
+              ) : null}
+            </div>
+            <div className="flex flex-nowrap gap-3 overflow-x-auto no-scrollbar pb-1">
               {accountColumns.map((column, colIdx) => (
                 <div key={colIdx} className="min-w-[280px] space-y-3">
                   {column.map(a => (
@@ -895,7 +945,7 @@ const SellerDashboard: React.FC = () => {
                           <p className={`text-sm ${textSec}`}>{a.role || 'vendeur'}</p>
                         </div>
                       </div>
-                      {a.username !== 'admin' && (
+                      {sellerUsername === 'admin' && a.username !== 'admin' && (
                         <button onClick={() => { deleteSellerAccount(a.username); notify('Compte supprimé', 'warning'); }}
                           className="p-2.5 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition-colors"><Trash2 size={16} /></button>
                       )}
@@ -910,8 +960,8 @@ const SellerDashboard: React.FC = () => {
         {/* ========== REPORTS TAB ========== */}
         {activeTab === 'reports' && (
           <div className="space-y-4">
-            <div className="flex gap-4 overflow-x-auto no-scrollbar pb-1">
-              {['journalier', 'hebdomadaire', 'mensuel', 'trimestriel'].map(period => (
+            <div className="flex flex-nowrap gap-4 overflow-x-auto no-scrollbar pb-1">
+              {reportPeriods.map(period => (
                 <div key={period} className={`${cardBg} border rounded-2xl p-5 shadow-sm min-w-[300px] flex-1`}>
                   <p className="text-lg font-bold mb-3">📊 Rapport {period}</p>
                   <div className="flex gap-3">
@@ -922,23 +972,45 @@ const SellerDashboard: React.FC = () => {
                       <Download size={16} /> Excel
                     </button>
                   </div>
-                  {period === 'journalier' && (
-                    <div className={`mt-4 p-3 rounded-xl border ${darkMode ? 'border-gray-700 bg-gray-900/40' : 'border-gray-200 bg-gray-50'}`}>
-                      <p className="text-sm font-semibold mb-2">Déclenchement automatique (PDF + Excel)</p>
-                      <div className="flex items-center gap-3">
+                  <div className={`mt-4 p-3 rounded-xl border ${darkMode ? 'border-gray-700 bg-gray-900/40' : 'border-gray-200 bg-gray-50'}`}>
+                    <p className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      <CalendarDays size={14} />
+                      {period === 'journalier' ? 'Déclenchement automatique (heure)' : 'Déclenchement automatique (date + heure)'}
+                    </p>
+                    <div className="grid grid-cols-1 gap-2">
+                      {period !== 'journalier' && (
                         <input
-                          type="time"
-                          value={autoDailyHour}
-                          onChange={(e) => setAutoDailyHour(e.target.value)}
+                          type="date"
+                          value={reportSchedules[period]?.date || ''}
+                          onChange={(e) => setReportSchedules(prev => ({
+                            ...prev,
+                            [period]: { ...(prev[period] || { enabled: false, date: '', time: '22:00' }), date: e.target.value },
+                          }))}
                           className={inputCls}
                         />
-                        <label className="flex items-center gap-2 text-sm font-medium whitespace-nowrap">
-                          <input type="checkbox" checked={autoDailyEnabled} onChange={(e) => setAutoDailyEnabled(e.target.checked)} />
-                          Activer
-                        </label>
-                      </div>
+                      )}
+                      <input
+                        type="time"
+                        value={reportSchedules[period]?.time || '22:00'}
+                        onChange={(e) => setReportSchedules(prev => ({
+                          ...prev,
+                          [period]: { ...(prev[period] || { enabled: false, time: '22:00' }), time: e.target.value },
+                        }))}
+                        className={inputCls}
+                      />
+                      <label className="flex items-center gap-2 text-sm font-medium whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          checked={reportSchedules[period]?.enabled || false}
+                          onChange={(e) => setReportSchedules(prev => ({
+                            ...prev,
+                            [period]: { ...(prev[period] || { enabled: false, time: '22:00' }), enabled: e.target.checked },
+                          }))}
+                        />
+                        Activer l'auto rapport {period}
+                      </label>
                     </div>
-                  )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -959,10 +1031,10 @@ const SellerDashboard: React.FC = () => {
               {reportHistory.length === 0 ? (
                 <p className={`text-sm ${textSec}`}>Aucun rapport généré pour le moment.</p>
               ) : (
-                <div className="space-y-2">
+                <div className="flex flex-nowrap gap-3 overflow-x-auto no-scrollbar pb-1">
                   {reportHistory.map((item) => (
-                    <div key={item.id} className={`flex flex-wrap items-center gap-2 md:gap-3 justify-between px-3 py-3 rounded-xl border ${darkMode ? 'border-gray-700 bg-gray-900/40' : 'border-gray-200 bg-gray-50'}`}>
-                      <div className="min-w-[180px]">
+                    <div key={item.id} className={`min-w-[320px] rounded-xl border p-3 ${darkMode ? 'border-gray-700 bg-gray-900/40' : 'border-gray-200 bg-gray-50'}`}>
+                      <div className="mb-3">
                         <p className="text-sm font-bold">
                           {item.format.toUpperCase()} - {item.period}
                         </p>
@@ -1110,6 +1182,40 @@ const SellerDashboard: React.FC = () => {
               <input type="password" placeholder="Mot de passe *" value={aPassword} onChange={e => setAPassword(e.target.value)} className={inputCls} />
               <button onClick={saveAccount} className="w-full py-3.5 bg-indigo-600 text-white rounded-xl text-base font-bold shadow-sm">
                 <UserPlus size={16} className="inline mr-2" />Créer le compte
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* My Account Modal */}
+      {showMyAccountModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setShowMyAccountModal(false)}>
+          <div className={`${cardBg} rounded-2xl p-6 w-full max-w-sm shadow-2xl`} onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-bold">Modifier mon compte</h3>
+              <button onClick={() => setShowMyAccountModal(false)} className="p-2 rounded-xl hover:bg-gray-100"><X size={20} /></button>
+            </div>
+            <div className="space-y-4">
+              <input type="text" placeholder="Mon nom d'utilisateur" value={myUsername} onChange={e => setMyUsername(e.target.value)} className={inputCls} />
+              <input type="password" placeholder="Nouveau mot de passe" value={myPassword} onChange={e => setMyPassword(e.target.value)} className={inputCls} />
+              <button
+                onClick={() => {
+                  if (!sellerUsername || !myUsername.trim()) {
+                    notify('Nom utilisateur invalide', 'error');
+                    return;
+                  }
+                  updateSellerAccount(sellerUsername, {
+                    username: myUsername.trim(),
+                    ...(myPassword ? { password: myPassword } : {}),
+                  });
+                  localStorage.setItem('sellerUsername', myUsername.trim());
+                  notify('Mon compte a été mis à jour', 'success');
+                  setShowMyAccountModal(false);
+                }}
+                className="w-full py-3.5 bg-emerald-600 text-white rounded-xl text-base font-bold shadow-sm"
+              >
+                <Save size={16} className="inline mr-2" />Enregistrer mes informations
               </button>
             </div>
           </div>

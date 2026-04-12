@@ -30,6 +30,7 @@ export interface Product {
   category: string;
   image: string;
   quantity?: number;
+  estimatedMinutes?: number;
   isActive: boolean;
 }
 
@@ -88,6 +89,7 @@ interface OrdersContextType {
 
   sellerAccounts: SellerAccount[];
   addSellerAccount: (account: SellerAccount) => void;
+  updateSellerAccount: (username: string, updates: Partial<SellerAccount>) => void;
   deleteSellerAccount: (username: string) => void;
 
   categories: Category[];
@@ -191,7 +193,8 @@ export const OrdersProvider: React.FC<OrdersProviderProps> = ({ children }) => {
       if (error) throw error;
       const transformed: Product[] = (data || []).map((p: any) => ({
         id: p.id, name: p.name, description: p.description || '', price: p.price,
-        category: p.category, image: p.image || '', quantity: p.quantity, isActive: p.is_active,
+        category: p.category, image: p.image || '', quantity: p.quantity, estimatedMinutes: p.estimated_minutes,
+        isActive: p.is_active,
       }));
       setProducts(transformed);
       safeSetItem('products_state', JSON.stringify(transformed));
@@ -394,7 +397,7 @@ export const OrdersProvider: React.FC<OrdersProviderProps> = ({ children }) => {
       try {
         const { data, error } = await supabase.from('products').insert({
           name: p.name, description: p.description, price: p.price,
-          category: p.category, image: p.image, quantity: p.quantity, is_active: true,
+          category: p.category, image: p.image, quantity: p.quantity, estimated_minutes: p.estimatedMinutes, is_active: true,
         }).select().single();
         if (error) throw error;
         p.id = data.id;
@@ -413,6 +416,7 @@ export const OrdersProvider: React.FC<OrdersProviderProps> = ({ children }) => {
         if (updates.category !== undefined) db.category = updates.category;
         if (updates.image !== undefined) db.image = updates.image;
         if (updates.quantity !== undefined) db.quantity = updates.quantity;
+        if (updates.estimatedMinutes !== undefined) db.estimated_minutes = updates.estimatedMinutes;
         if (updates.isActive !== undefined) db.is_active = updates.isActive;
         await supabase.from('products').update(db).eq('id', id);
       } catch (e) { console.error('Erreur maj produit:', e); }
@@ -492,6 +496,27 @@ export const OrdersProvider: React.FC<OrdersProviderProps> = ({ children }) => {
     setSellerAccounts(prev => { const u = [...prev, account]; safeSetItem('seller_accounts_state', JSON.stringify(u)); return u; });
   };
 
+  const updateSellerAccount = async (username: string, updates: Partial<SellerAccount>) => {
+    if (isSupabaseConfigured()) {
+      try {
+        const payload: Record<string, any> = {};
+        if (updates.username !== undefined) payload.username = updates.username;
+        if (updates.password !== undefined) payload.password = updates.password;
+        if (updates.username !== undefined) payload.name = updates.username;
+        if (Object.keys(payload).length > 0) {
+          await supabase.from('seller_accounts').update(payload).eq('username', username);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    setSellerAccounts(prev => {
+      const u = prev.map(a => a.username === username ? { ...a, ...updates } : a);
+      safeSetItem('seller_accounts_state', JSON.stringify(u));
+      return u;
+    });
+  };
+
   const deleteSellerAccount = async (username: string) => {
     if (username === 'admin') return;
     if (isSupabaseConfigured()) { try { await supabase.from('seller_accounts').delete().eq('username', username); } catch (e) { console.error(e); } }
@@ -526,7 +551,7 @@ export const OrdersProvider: React.FC<OrdersProviderProps> = ({ children }) => {
       orders, addOrder, updateOrderStatus, getOrdersByTable, getOrderById, getOrdersByCustomer,
       products, addProduct, updateProduct, deleteProduct, decreaseProductStock,
       paymentNumbers, updatePaymentNumber,
-      sellerAccounts, addSellerAccount, deleteSellerAccount,
+      sellerAccounts, addSellerAccount, updateSellerAccount, deleteSellerAccount,
       categories, addCategory, updateCategory, deleteCategory,
       restaurantSettings, updateRestaurantSettings,
       isOnline, loading,

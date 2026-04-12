@@ -19,13 +19,15 @@ const FloatingCartButton: React.FC = () => {
   return (
     <button
       onClick={() => navigate('/cart')}
-      className="fixed bottom-6 right-24 z-50 rounded-full bg-indigo-600 text-white shadow-xl hover:bg-indigo-700 transition-all px-4 py-3 flex items-center gap-2"
+      className="fixed bottom-6 right-24 z-50 rounded-full bg-slate-900 text-white shadow-xl hover:bg-slate-800 transition-all px-3.5 py-2.5 flex items-center gap-2 border border-slate-700"
       aria-label="Voir le panier"
       title="Suivre le processus de commande"
     >
       <ShoppingCart size={18} />
-      <span className="text-sm font-semibold">{itemCount}</span>
-      <span className="hidden sm:inline text-xs opacity-90">
+      <span className="inline-flex items-center justify-center min-w-[24px] h-6 rounded-full bg-amber-400 text-slate-900 text-xs font-extrabold px-1.5">
+        {itemCount}
+      </span>
+      <span className="hidden sm:inline text-xs font-bold text-emerald-300">
         {new Intl.NumberFormat('fr-MG').format(total)} Ar
       </span>
     </button>
