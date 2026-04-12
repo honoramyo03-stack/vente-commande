@@ -1,10 +1,14 @@
 import { createClient } from '@supabase/supabase-js'
 
-// ⚠️ REMPLACEZ CES VALEURS PAR VOS PROPRES CLÉS SUPABASE
-// Vous les trouverez dans : Settings > API de votre projet Supabase
+// Source de verite: variables d'environnement Vercel/Vite.
+// Fallback fourni pour eviter les erreurs en environnement sans .env local.
+const supabaseUrl =
+  import.meta.env.VITE_SUPABASE_URL ||
+  'https://dcfzxnxolubxmmrczwlf.supabase.co'
 
-const supabaseUrl = 'https://lfqldfyhzocurodtkgfc.supabase.co'
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmcWxkZnloem9jdXJvZHRrZ2ZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NDI4NTYsImV4cCI6MjA5MTQxODg1Nn0.6PLQn_pNfsbmC_Z0mrolz8DF1tIb50gqoZOs85kwEAc'
+const supabaseAnonKey =
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRjZnp4bnhvbHVieG1tcmN6d2xmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4MzkyMDIsImV4cCI6MjA5MTQxNTIwMn0.USMqOdcTzpz1HQrynbC1ErvQ-ppZT5dyppGWcWKb8GU'
 
 // Vérifier si Supabase est configuré
 // Vérifier si Supabase est configuré (fonction runtime)

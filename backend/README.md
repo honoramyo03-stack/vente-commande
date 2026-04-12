@@ -51,7 +51,7 @@ npm run dev
 ```env
 PORT=4000
 
-SUPABASE_URL=https://lfqldfyhzocurodtkgfc.supabase.co
+SUPABASE_URL=https://dcfzxnxolubxmmrczwlf.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=REPLACE_WITH_SUPABASE_SERVICE_ROLE_KEY
 
 CORS_ORIGIN=https://your-frontend.vercel.app,http://localhost:5173
