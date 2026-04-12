@@ -483,6 +483,9 @@ const SellerDashboard: React.FC = () => {
   const cardBg = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200';
   const textSec = darkMode ? 'text-gray-400' : 'text-gray-500';
   const inputCls = `w-full text-base px-4 py-3 rounded-xl border ${cardBg} focus:ring-2 focus:ring-indigo-500 outline-none`;
+  const primaryBtnCls = 'flex items-center gap-2 px-4 h-11 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-sm hover:bg-indigo-700 transition-colors';
+  const successBtnCls = 'flex items-center gap-2 px-4 h-11 bg-green-600 text-white rounded-xl text-sm font-bold shadow-sm hover:bg-green-700 transition-colors';
+  const cardShellCls = `${cardBg} border rounded-2xl shadow-sm h-full`;
 
   const tabs = [
     { id: 'orders' as const, label: 'Commandes', icon: Package, badge: pendingOrders },
@@ -499,66 +502,68 @@ const SellerDashboard: React.FC = () => {
     <div className={`min-h-screen ${bg} transition-colors`}>
       <SellerHeader />
 
-      {/* Top bar: theme + connected clients */}
-      <div className="flex items-center justify-between px-4 pt-3 pb-1">
-        <div className="flex items-center gap-2">
-          <Users size={16} className="text-indigo-500" />
-          <span className={`text-sm font-medium ${textSec}`}>{connectedCustomers.length} client(s) connecté(s)</span>
+      <div className={`sticky top-[88px] z-40 ${darkMode ? 'bg-gray-900/95' : 'bg-gray-50/95'} backdrop-blur border-b ${darkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+        {/* Top bar: theme + connected clients */}
+        <div className="flex items-center justify-between px-4 pt-3 pb-2">
+          <div className="flex items-center gap-2">
+            <Users size={16} className="text-indigo-500" />
+            <span className={`text-sm sm:text-base font-semibold ${textSec}`}>{connectedCustomers.length} client(s) connecté(s)</span>
+          </div>
+          <button onClick={() => setDarkMode(!darkMode)}
+            className={`flex items-center gap-2 px-3 h-10 rounded-xl text-sm font-semibold transition-all ${darkMode ? 'bg-yellow-400 text-gray-900' : 'bg-gray-800 text-yellow-400'}`}>
+            {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+            {darkMode ? 'Clair' : 'Sombre'}
+          </button>
         </div>
-        <button onClick={() => setDarkMode(!darkMode)}
-          className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all ${darkMode ? 'bg-yellow-400 text-gray-900' : 'bg-gray-800 text-yellow-400'}`}>
-          {darkMode ? <Sun size={18} /> : <Moon size={18} />}
-          {darkMode ? 'Clair' : 'Sombre'}
-        </button>
-      </div>
 
-      {/* Global quick stats above tabs */}
-      <div className="px-4 pt-3">
-        <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
-          <div className={`relative overflow-hidden rounded-2xl p-4 border ${cardBg} shadow-sm min-w-[220px] flex-1`}>
+        {/* Global quick stats above tabs */}
+        <div className="px-4 pb-2">
+          <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+            <div className={`relative overflow-hidden p-4 min-w-[210px] flex-1 ${cardShellCls} h-[140px]`}>
             <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/10 rounded-full -translate-y-6 translate-x-6" />
             <div className="bg-blue-500 text-white p-2.5 rounded-xl w-fit mb-2"><ShoppingBag size={20} /></div>
             <p className={`text-sm ${textSec} font-medium`}>Commandes</p>
-            <p className="text-2xl font-bold mt-1">{totalOrders}</p>
+            <p className="text-xl font-bold mt-1">{totalOrders}</p>
             <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">{completedOrders} terminées</span>
-          </div>
-          <div className={`relative overflow-hidden rounded-2xl p-4 border ${cardBg} shadow-sm min-w-[220px] flex-1`}>
+            </div>
+            <div className={`relative overflow-hidden p-4 min-w-[210px] flex-1 ${cardShellCls} h-[140px]`}>
             <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/10 rounded-full -translate-y-6 translate-x-6" />
             <div className="bg-emerald-500 text-white p-2.5 rounded-xl w-fit mb-2"><Wallet size={20} /></div>
             <p className={`text-sm ${textSec} font-medium`}>Chiffre d'affaires</p>
-            <p className="text-xl font-bold mt-1">{formatPrice(totalRevenue)}</p>
+            <p className="text-lg font-bold mt-1">{formatPrice(totalRevenue)}</p>
             <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">Panier moy: {formatPrice(avgOrder)}</span>
-          </div>
-          <div className={`relative overflow-hidden rounded-2xl p-4 border ${cardBg} shadow-sm min-w-[220px] flex-1`}>
+            </div>
+            <div className={`relative overflow-hidden p-4 min-w-[210px] flex-1 ${cardShellCls} h-[140px]`}>
             <div className="absolute top-0 right-0 w-20 h-20 bg-orange-500/10 rounded-full -translate-y-6 translate-x-6" />
             <div className="bg-orange-500 text-white p-2.5 rounded-xl w-fit mb-2"><Clock size={20} /></div>
             <p className={`text-sm ${textSec} font-medium`}>En attente</p>
-            <p className="text-2xl font-bold mt-1">{pendingOrders}</p>
+            <p className="text-xl font-bold mt-1">{pendingOrders}</p>
             {pendingOrders > 0 && (
               <span className="animate-pulse text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 w-fit">
                 <Zap size={10} /> Action requise
               </span>
             )}
-          </div>
-          <div className={`relative overflow-hidden rounded-2xl p-4 border ${cardBg} shadow-sm min-w-[220px] flex-1`}>
+            </div>
+            <div className={`relative overflow-hidden p-4 min-w-[210px] flex-1 ${cardShellCls} h-[140px]`}>
             <div className="absolute top-0 right-0 w-20 h-20 bg-purple-500/10 rounded-full -translate-y-6 translate-x-6" />
             <div className="bg-purple-500 text-white p-2.5 rounded-xl w-fit mb-2"><TrendingUp size={20} /></div>
             <p className={`text-sm ${textSec} font-medium`}>TVA ({restaurantSettings.vatRate}%)</p>
-            <p className="text-xl font-bold mt-1">{formatPrice(vatAmount)}</p>
+            <p className="text-lg font-bold mt-1">{formatPrice(vatAmount)}</p>
             <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">{restaurantSettings.currency}</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="px-4 pt-4 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-        {tabs.map(t => (
-          <button key={t.id} onClick={() => setActiveTab(t.id)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all ${activeTab === t.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : darkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' : 'bg-white text-gray-600 hover:bg-gray-100 shadow-sm'}`}>
-            <t.icon size={16} />{t.label}
-            {t.badge ? <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">{t.badge}</span> : null}
-          </button>
-        ))}
+        {/* Tabs */}
+        <div className="px-4 pb-3 flex gap-2 overflow-x-auto no-scrollbar">
+          {tabs.map(t => (
+            <button key={t.id} onClick={() => setActiveTab(t.id)}
+              className={`h-9 flex items-center gap-2 px-4 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${activeTab === t.id ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 ring-2 ring-indigo-200/70' : darkMode ? 'bg-gray-800 text-gray-300 hover:bg-gray-700' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}`}>
+              <t.icon size={15} />{t.label}
+              {t.badge ? <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">{t.badge}</span> : null}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="px-4 py-4">
@@ -674,7 +679,7 @@ const SellerDashboard: React.FC = () => {
         {activeTab === 'products' && (
           <div>
             <div className="flex flex-wrap gap-3 mb-4 items-center">
-              <button onClick={() => openProductModal()} className="flex items-center gap-2 px-4 py-3 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-sm">
+              <button onClick={() => openProductModal()} className={primaryBtnCls}>
                 <PlusCircle size={18} /> Ajouter un produit
               </button>
               <div className="relative flex-1 min-w-[160px]">
@@ -725,7 +730,7 @@ const SellerDashboard: React.FC = () => {
         {activeTab === 'categories' && (
           <div>
             <button onClick={() => { setEditingCategory(null); setCatName(''); setCatIcon(''); setShowCategoryModal(true); }}
-              className="flex items-center gap-2 px-4 py-3 bg-indigo-600 text-white rounded-xl text-sm font-bold mb-4 shadow-sm">
+              className={`${primaryBtnCls} mb-4`}>
               <PlusCircle size={18} /> Nouvelle Catégorie
             </button>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -917,7 +922,7 @@ const SellerDashboard: React.FC = () => {
           <div>
             <div className="flex flex-wrap items-center gap-3 mb-4">
               <button onClick={() => setShowAccountModal(true)}
-                className="flex items-center gap-2 px-4 py-3 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-sm">
+                className={primaryBtnCls}>
                 <UserPlus size={18} /> Nouveau Compte
               </button>
               {myAccount ? (
@@ -927,7 +932,7 @@ const SellerDashboard: React.FC = () => {
                     setMyPassword('');
                     setShowMyAccountModal(true);
                   }}
-                  className="flex items-center gap-2 px-4 py-3 bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-sm"
+                  className={successBtnCls}
                 >
                   <Edit2 size={16} /> Modifier mon compte ({myAccount.username})
                 </button>

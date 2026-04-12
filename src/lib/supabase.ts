@@ -8,7 +8,7 @@ const supabaseUrl =
 
 const supabaseAnonKey =
   import.meta.env.VITE_SUPABASE_ANON_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRjZnp4bnhvbHVieG1tcmN6d2xmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4MzkyMDIsImV4cCI6MjA5MTQxNTIwMn0.USMqOdcTzpz1HQrynbC1ErvQ-ppZT5dyppGWcWKb8GU'
+  'sb_publishable_BSC4b2gskRtng6L-NJNN0g_ODY5vF2G'
 
 // Vérifier si Supabase est configuré
 // Vérifier si Supabase est configuré (fonction runtime)
